@@ -64,7 +64,7 @@ export function Topbar() {
                     >
                         <Menu className="h-5 w-5" />
                     </button>
-                    <div className="font-medium">Internal Operations</div>
+                    <div className="font-medium">DIVI Appliances</div>
                 </div>
 
                 {/* Right: theme toggle + user dropdown */}
