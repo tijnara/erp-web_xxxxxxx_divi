@@ -24,6 +24,8 @@ export function SalesmenView({ provider }: { provider: DataProvider }) {
     const [operationNames, setOperationNames] = useState<Record<string, string>>({});
     // Company name lookup map (id/code -> company_name)
     const [companyNames, setCompanyNames] = useState<Record<string, string>>({});
+    // Price type name lookup map (id -> price_type_name)
+    const [priceTypeNames, setPriceTypeNames] = useState<Record<string, string>>({});
 
     // Load branches once to resolve branch_name from numeric/code values
     useEffect(() => {
@@ -100,6 +102,31 @@ export function SalesmenView({ provider }: { provider: DataProvider }) {
         };
     }, []);
 
+    // Load price types once to resolve price_type_name from numeric values
+    useEffect(() => {
+        let alive = true;
+        (async () => {
+            try {
+                const res = await fetch(apiUrl("items/price_types"));
+                if (!res.ok) return;
+                const json = await res.json();
+                const rows: any[] = json?.data ?? [];
+                const map: Record<string, string> = {};
+                for (const r of rows) {
+                    const id = r.price_type_id ?? r.id;
+                    const name: string = r.price_type_name ?? r.name ?? String(id ?? "");
+                    if (id != null) map[String(id)] = name;
+                }
+                if (alive) setPriceTypeNames(map);
+            } catch {
+                // ignore errors; fallback to showing raw value
+            }
+        })();
+        return () => {
+            alive = false;
+        };
+    }, []);
+
     async function refresh() {
         const { items, total } = await provider.listSalesmen({ q, limit: 100 });
         setRows(items);
@@ -141,6 +168,12 @@ export function SalesmenView({ provider }: { provider: DataProvider }) {
         if (val === null || val === undefined || val === "") return "-";
         const key = String(val);
         return companyNames[key] ?? String(val);
+    }
+
+    function displayPriceType(val: any): string {
+        if (val === null || val === undefined || val === "") return "-";
+        const key = String(val);
+        return priceTypeNames[key] ?? String(val);
     }
 
     return (
@@ -262,7 +295,7 @@ export function SalesmenView({ provider }: { provider: DataProvider }) {
                             <tr className="border-t"><td className="p-3 font-medium text-gray-600">Branch</td><td className="p-3">{displayBranch(selected.branch_code ?? selected.territory)}</td></tr>
                             <tr className="border-t"><td className="p-3 font-medium text-gray-600">Operation</td><td className="p-3">{displayOperation(selected.operation)}</td></tr>
                             <tr className="border-t"><td className="p-3 font-medium text-gray-600">Company</td><td className="p-3">{displayCompany(selected.company_code)}</td></tr>
-                            <tr className="border-t"><td className="p-3 font-medium text-gray-600">Price Type</td><td className="p-3">{selected.price_type ?? "-"}</td></tr>
+                            <tr className="border-t"><td className="p-3 font-medium text-gray-600">Price Type</td><td className="p-3">{displayPriceType(selected.price_type)}</td></tr>
                             <tr className="border-t"><td className="p-3 font-medium text-gray-600">Active</td><td className="p-3">{selected.isActive !== false ? "Yes" : "No"}</td></tr>
                             <tr className="border-t"><td className="p-3 font-medium text-gray-600">Modified Date</td><td className="p-3">{selected.hireDate ?? "-"}</td></tr>
                             <tr className="border-t"><td className="p-3 font-medium text-gray-600">Territory</td><td className="p-3">{selected.territory ?? "-"}</td></tr>

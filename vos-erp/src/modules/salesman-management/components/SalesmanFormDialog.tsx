@@ -202,6 +202,10 @@ export function SalesmanFormDialog({
   const [users, setUsers] = useState<Option[]>([]);
   const [usersById, setUsersById] = useState<Record<string, any>>({});
   const [selectedUserId, setSelectedUserId] = useState<string | number | "">(initial?.employee_id ?? "");
+  // Typeahead state for Salesman Name
+  const [userQuery, setUserQuery] = useState("");
+  const [showUserSuggestions, setShowUserSuggestions] = useState(false);
+  const [highlightIndex, setHighlightIndex] = useState<number>(-1);
 
   // When user changes, auto-fill employee_id and name
   useEffect(() => {
@@ -213,6 +217,12 @@ export function SalesmanFormDialog({
       setName(full);
     }
   }, [selectedUserId, usersById]);
+
+  const filteredUsers = useMemo(() => {
+    const q = userQuery.trim().toLowerCase();
+    if (!q) return users.slice(0, 20);
+    return users.filter((o) => o.label.toLowerCase().includes(q)).slice(0, 20);
+  }, [userQuery, users]);
 
   useEffect(() => {
     if (!open) return;
@@ -246,6 +256,17 @@ export function SalesmanFormDialog({
     setSelectedUserId(initial?.employee_id ?? "");
   }, [open, initial]);
 
+  useEffect(() => {
+    if (!open) return;
+    if (selectedUserId !== "") {
+      const sel = users.find((o) => String(o.value) === String(selectedUserId));
+      setUserQuery(truncateNameDisplay(sel?.label ?? ""));
+    } else {
+      setUserQuery("");
+    }
+    setHighlightIndex(-1);
+  }, [open, users, selectedUserId]);
+
   // Auto-generate Salesman Code when creating a new record
   useEffect(() => {
     if (!open || mode !== "create") return;
@@ -273,6 +294,9 @@ export function SalesmanFormDialog({
     setPriceType("");
     setIsActive(true);
     setSelectedUserId("");
+    setUserQuery("");
+    setShowUserSuggestions(false);
+    setHighlightIndex(-1);
   }
 
   async function handleSubmit() {
@@ -324,24 +348,57 @@ export function SalesmanFormDialog({
             <Help>Required numeric</Help>
           </div>
 
-          <div>
+          <div className="relative">
             <InputLabel required>Salesman Name (User)</InputLabel>
-            <select
-              value={selectedUserId === "" ? "" : String(selectedUserId)}
+            <input
+              value={userQuery}
               onChange={(e) => {
-                const val = e.target.value;
-                setSelectedUserId(val === "" ? "" : val);
+                setUserQuery(e.target.value);
+                setShowUserSuggestions(true);
+                setHighlightIndex(-1);
+                setSelectedUserId("");
               }}
+              onFocus={() => setShowUserSuggestions(true)}
+              onKeyDown={(e) => {
+                if (e.key === "ArrowDown") {
+                  e.preventDefault();
+                  setHighlightIndex((i) => Math.min(i + 1, filteredUsers.length - 1));
+                } else if (e.key === "ArrowUp") {
+                  e.preventDefault();
+                  setHighlightIndex((i) => Math.max(i - 1, 0));
+                } else if (e.key === "Enter") {
+                  if (highlightIndex >= 0 && filteredUsers[highlightIndex]) {
+                    const o = filteredUsers[highlightIndex];
+                    setSelectedUserId(o.value as any);
+                    setUserQuery(truncateNameDisplay(o.label));
+                    setShowUserSuggestions(false);
+                  }
+                } else if (e.key === "Escape") {
+                  setShowUserSuggestions(false);
+                }
+              }}
+              onBlur={() => setTimeout(() => setShowUserSuggestions(false), 100)}
+              placeholder="Type to search users…"
               className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm bg-white"
-            >
-              <option value="">Select a user</option>
-              {users.map((o) => (
-                <option key={String(o.value)} value={String(o.value)}>
-                  {truncateNameDisplay(o.label)}
-                </option>
-              ))}
-            </select>
-            <Help>Loaded from Users API; label is truncated for display only.</Help>
+            />
+            {showUserSuggestions && filteredUsers.length > 0 && (
+              <div className="absolute z-20 mt-1 w-full rounded-lg border border-gray-200 bg-white shadow">
+                {filteredUsers.map((o, idx) => (
+                  <div
+                    key={String(o.value)}
+                    className={`px-3 py-2 text-sm cursor-pointer ${idx === highlightIndex ? "bg-gray-100" : ""}`}
+                    onMouseDown={() => {
+                      setSelectedUserId(o.value as any);
+                      setUserQuery(truncateNameDisplay(o.label));
+                      setShowUserSuggestions(false);
+                    }}
+                  >
+                    {truncateNameDisplay(o.label)}
+                  </div>
+                ))}
+              </div>
+            )}
+            <Help>Start typing to search users; label is truncated for display only.</Help>
           </div>
 
           <div>
