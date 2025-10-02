@@ -1,8 +1,9 @@
 // src/modules/salesman-management/providers/fetchProvider.ts
 import type { DataProvider, ListParams } from "./DataProvider";
 import type { Salesman, UpsertSalesmanDTO } from "../types";
+import { apiUrl } from "../../../config/api";
 
-const BASE = "http://100.119.3.44:8090/items/salesman";
+const BASE = apiUrl("items/salesman");
 
 function toUI(row: any): Salesman {
   return {
