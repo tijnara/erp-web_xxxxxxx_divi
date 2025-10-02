@@ -541,13 +541,22 @@ export function SalesmanFormDialog({
         </div>
 
         <div className="mt-6 flex items-center justify-between">
-          <button
-            className="px-3 py-2 rounded-lg border text-sm"
-            onClick={clearForm}
-            disabled={submitting}
-          >
-            Clear
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              className="px-3 py-2 rounded-lg border text-sm"
+              onClick={onClose}
+              disabled={submitting}
+            >
+              Cancel
+            </button>
+            <button
+              className="px-3 py-2 rounded-lg border text-sm"
+              onClick={clearForm}
+              disabled={submitting}
+            >
+              Clear
+            </button>
+          </div>
           <button
             className="px-4 py-2 rounded-lg bg-black text-white text-sm disabled:opacity-50"
             disabled={!canSubmit || submitting}
