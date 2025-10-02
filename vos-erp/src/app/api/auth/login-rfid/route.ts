@@ -5,7 +5,7 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { SignJWT } from 'jose';
 
-const DIRECTUS = process.env.NEXT_PUBLIC_DIRECTUS_URL ?? '';
+const DIRECTUS = (process.env.NEXT_PUBLIC_DIRECTUS_URL ?? '').replace(/\/+$/,'');
 const M_EMAIL = process.env.DIRECTUS_MACHINE_EMAIL;
 const M_PASS  = process.env.DIRECTUS_MACHINE_PASSWORD;
 
@@ -49,13 +49,11 @@ export async function POST(req: Request) {
                 body: JSON.stringify({ email: M_EMAIL, password: M_PASS }),
             });
             const auth = await authRes.json().catch(() => ({}));
-            if (!authRes.ok) {
-                const msg = auth?.errors?.[0]?.message || 'RFID auth backend unavailable';
-                return NextResponse.json({ error: msg }, { status: 500 });
-            }
-            token = auth?.data?.access_token;
-            if (!token) {
-                return NextResponse.json({ error: 'RFID auth backend unavailable' }, { status: 500 });
+            if (authRes.ok) {
+                token = auth?.data?.access_token;
+            } else {
+                console.warn('RFID machine login failed:', authRes.status, auth?.errors?.[0]?.message);
+                token = undefined; // proceed without token; permissions may allow public lookup
             }
         }
 
