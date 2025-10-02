@@ -298,8 +298,6 @@ export function SalesmenView({ provider }: { provider: DataProvider }) {
                             <tr className="border-t"><td className="p-3 font-medium text-gray-600">Price Type</td><td className="p-3">{displayPriceType(selected.price_type)}</td></tr>
                             <tr className="border-t"><td className="p-3 font-medium text-gray-600">Active</td><td className="p-3">{selected.isActive !== false ? "Yes" : "No"}</td></tr>
                             <tr className="border-t"><td className="p-3 font-medium text-gray-600">Modified Date</td><td className="p-3">{selected.hireDate ?? "-"}</td></tr>
-                            <tr className="border-t"><td className="p-3 font-medium text-gray-600">Territory</td><td className="p-3">{selected.territory ?? "-"}</td></tr>
-                            <tr className="border-t"><td className="p-3 font-medium text-gray-600">ID</td><td className="p-3">{String(selected.id)}</td></tr>
                         </tbody>
                     </table>
                 </div>
