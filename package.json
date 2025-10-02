@@ -6,7 +6,9 @@
   "scripts": {
     "build": "tsc"
   },
-  "dependencies": {},
+  "dependencies": {
+    "@directus/sdk": "^20.1.0"
+  },
   "devDependencies": {
     "typescript": "^5.5.3"
   },
