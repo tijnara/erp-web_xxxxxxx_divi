@@ -27,7 +27,7 @@ const MAP: Record<
         idField: "category_id"
     },
     segment: {path: "segment", fields: "segment_id,segment_name", nameField: "segment_name", idField: "segment_id"},
-    sections: {path: "sections", fields: "section_id,section_name", nameField: "section_name", idField: "section_id"},
+    sections: {path: "sections", fields: "section_id,section_name", nameField: "section_name", idField: "section_id"}
 };
 
 export async function GET(req: Request, ctx: { params: { resource: string } }) {
