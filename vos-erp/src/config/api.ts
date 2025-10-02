@@ -26,3 +26,11 @@ export function apiUrl(path: string): string {
   const cleanPath = path.replace(/^\/+/, "");
   return `${base}/${cleanPath}`;
 }
+
+
+export const ITEMS_BASE = apiUrl("items");
+
+export function itemsUrl(path: string = ""): string {
+  const clean = path.replace(/^\/+/, "");
+  return clean ? `${ITEMS_BASE}/${clean}` : ITEMS_BASE;
+}

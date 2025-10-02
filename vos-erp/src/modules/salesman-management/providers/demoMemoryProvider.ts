@@ -63,7 +63,7 @@ export const demoMemoryProvider = (): DataProvider => {
         },
 
         async deleteSalesman(id) {
-            salesmen = salesmen.filter((s) => String(s.id) !== String(id));
+            throw new Error("Delete salesman is disabled");
         },
     };
 };
