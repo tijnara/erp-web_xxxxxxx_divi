@@ -1,19 +1,26 @@
+// src/modules/product-management/ProductManagementModule.tsx
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { HeaderTabs } from "./components/HeaderTabs";
 import { ProductsView } from "./components/ProductsView";
 import { PricingView } from "./components/PricingView";
 import { PriceTypesView } from "./components/PriceTypesView";
-import { demoMemoryProvider } from "./providers/demoMemoryProvider";
+
+// ⬇️ use the real provider
+import { HttpDataProvider } from "./providers/HttpDataProvider";
 
 export function ProductManagementModule() {
-    const provider = demoMemoryProvider(); // ✅ now created on client
+    // create once per mount
+    const provider = useMemo(() => new HttpDataProvider(), []);
+
     const [tab, setTab] = useState<"products" | "pricing" | "types">("products");
 
     const [priceTypesReady, setPriceTypesReady] = useState(false);
     useEffect(() => {
-        provider.listPriceTypes().then(() => setPriceTypesReady(true));
+        let alive = true;
+        provider.listPriceTypes().then(() => alive && setPriceTypesReady(true));
+        return () => { alive = false; };
     }, [provider]);
 
     return (
@@ -21,10 +28,8 @@ export function ProductManagementModule() {
             <HeaderTabs tab={tab} onChange={setTab} />
             <div className="mt-4">
                 {tab === "products" && <ProductsView provider={provider} />}
-                {tab === "pricing" && (
-                    <PricingView provider={provider} priceTypesPreloaded={priceTypesReady} />
-                )}
-                {tab === "types" && <PriceTypesView provider={provider} />}
+                {tab === "pricing"  && <PricingView provider={provider} priceTypesPreloaded={priceTypesReady} />}
+                {tab === "types"    && <PriceTypesView provider={provider} />}
             </div>
         </div>
     );
