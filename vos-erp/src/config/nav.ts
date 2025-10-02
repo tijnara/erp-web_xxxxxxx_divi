@@ -70,4 +70,11 @@ export const nav: NavItem[] = [
             },
         ],
     },
+    {
+        label: "Account",
+        children: [
+            { label: "Profile", href: "/account/profile" },
+            { label: "Logout", href: "/logout" },
+        ],
+    }
 ];
