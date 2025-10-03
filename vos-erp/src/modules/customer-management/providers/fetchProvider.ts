@@ -87,23 +87,28 @@ async function http<T = any>(input: string, init?: RequestInit): Promise<T> {
 
 export const fetchProvider = () => ({
   async listCustomers({ q }: { q?: string }) {
-    const json = await http<{ data: any[] }>(BASE);
-    let items = (json as any).data ? (json as any).data.map(toUI) : [];
-    if (q && q.trim().length > 0) {
-      const term = q.trim().toLowerCase();
-      items = items.filter((c) => {
-        const cityProv = [c.city, c.province].filter(Boolean).join(" ").toLowerCase();
-        return (
-          c.customer_code?.toLowerCase().includes(term) ||
-          c.customer_name?.toLowerCase().includes(term) ||
-          c.store_name?.toLowerCase().includes(term) ||
-          (c.customer_email ?? "").toLowerCase().includes(term) ||
-          (c.contact_number ?? "").toLowerCase().includes(term) ||
-          cityProv.includes(term)
-        );
-      });
+    try {
+      const json = await http<{ data: any[] }>(BASE);
+      let items = (json?.data ?? []).map(toUI);
+      if (q && q.trim().length > 0) {
+        const term = q.trim().toLowerCase();
+        items = items.filter((c) => {
+          const cityProv = [c.city, c.province].filter(Boolean).join(" ").toLowerCase();
+          return (
+            c.customer_code?.toLowerCase().includes(term) ||
+            c.customer_name?.toLowerCase().includes(term) ||
+            c.store_name?.toLowerCase().includes(term) ||
+            (c.customer_email ?? "").toLowerCase().includes(term) ||
+            (c.contact_number ?? "").toLowerCase().includes(term) ||
+            cityProv.includes(term)
+          );
+        });
+      }
+      return { items, total: items.length };
+    } catch (e) {
+      console.error("Failed to list customers:", e);
+      return { items: [], total: 0 }; // Return empty on error
     }
-    return { items, total: items.length };
   },
 
   async getCustomer(id: string | number) {
