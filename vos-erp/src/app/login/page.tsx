@@ -7,9 +7,10 @@ import { useRouter, useSearchParams } from 'next/navigation';
 const ALLOWED_PREFIXES = ['/dashboard', '/admin', '/operation', '/hr', '/reports'];
 function safeNextPath(input: string | null) {
     if (!input) return '/dashboard';
-    if (typeof window === 'undefined') return '/dashboard';
     try {
-        const url = new URL(input, window.location.origin);
+        // Support absolute and relative inputs even during SSR
+        const base = 'http://localhost';
+        const url = new URL(input, base);
         const path = url.pathname || '/dashboard';
         return ALLOWED_PREFIXES.some((p) => path.startsWith(p)) ? `${path}${url.search}${url.hash}` : '/dashboard';
     } catch { return '/dashboard'; }

@@ -11,6 +11,7 @@ function toUI(row: any): Salesman {
         code: row.salesman_code ?? null,
         name: row.salesman_name ?? (row.id != null ? String(row.id) : "Unnamed"),
         employee_id: row.employee_id ?? null,
+        encoder_id: row.encoder_id ?? null,
         email: null,
         phone: null,
         territory: row.branch_code != null ? String(row.branch_code) : null,
@@ -42,6 +43,9 @@ function toAPI(dto: UpsertSalesmanDTO): Record<string, any> {
 
     const emp = num((dto as any).employee_id);
     if (emp !== undefined) body["employee_id"] = emp;
+
+    const enc = num((dto as any).encoder_id);
+    if (enc !== undefined) body["encoder_id"] = enc;
 
     if (dto.truck_plate !== undefined) body["truck_plate"] = dto.truck_plate;
 

@@ -190,6 +190,10 @@ export function SalesmanFormDialog({
   const [price_type, setPriceType] = useState<string | number | "">(initial?.price_type ?? "");
   const [isActive, setIsActive] = useState<boolean>(initial?.isActive ?? true);
 
+  // Encoder (current logged-in user)
+  const [encoderId, setEncoderId] = useState<number | null>(null);
+  const [encoderName, setEncoderName] = useState<string>("");
+
   const [branches, setBranches] = useState<Option[]>([]);
   const [operations, setOperations] = useState<Option[]>([]);
   const [companies, setCompanies] = useState<Option[]>([]);
@@ -275,6 +279,25 @@ export function SalesmanFormDialog({
       .catch(() => setCode("SM-0001"));
   }, [open, mode]);
 
+  // Fetch current logged-in user (encoder)
+  useEffect(() => {
+    if (!open) return;
+    (async () => {
+      try {
+        const res = await fetch("/api/auth/me", { cache: "no-store" });
+        if (!res.ok) return;
+        const json = await res.json();
+        const u = json?.user;
+        if (u?.sub) {
+          setEncoderId(Number(u.sub));
+          setEncoderName(u.name || `User ${u.sub}`);
+        }
+      } catch {
+        // ignore
+      }
+    })();
+  }, [open]);
+
   const canSubmit = useMemo(() => {
     if (selectedUserId === "" || !code) return false;
     if (employee_id === "" || isNaN(Number(employee_id))) return false;
@@ -307,6 +330,7 @@ export function SalesmanFormDialog({
       const fullName = picked ? `${picked.user_fname ?? ""} ${picked.user_lname ?? ""}`.trim() : name;
       const dto: UpsertSalesmanDTO = {
         employee_id: employee_id === "" ? (selectedUserId === "" ? null : Number(selectedUserId)) : Number(employee_id),
+        encoder_id: mode === "create" ? (encoderId ?? undefined) : undefined,
         code: code || undefined,
         name: fullName,
         truck_plate: truck_plate || undefined,
@@ -347,6 +371,7 @@ export function SalesmanFormDialog({
             />
             <Help>Required numeric</Help>
           </div>
+
 
           <div className="relative">
             <InputLabel required>Salesman Name (User)</InputLabel>
@@ -557,13 +582,25 @@ export function SalesmanFormDialog({
               Clear
             </button>
           </div>
-          <button
-            className="px-4 py-2 rounded-lg bg-black text-white text-sm disabled:opacity-50"
-            disabled={!canSubmit || submitting}
-            onClick={handleSubmit}
-          >
-            {mode === "create" ? "Register Salesman" : "Save Changes"}
-          </button>
+          <div className="flex items-center gap-3">
+            <div
+              className="text-xs text-gray-500"
+              title="Encoder is automatically set to the logged-in user"
+            >
+              Encoder:{" "}
+              <span className="font-medium">
+                {encoderName ? encoderName : "—"}
+                {encoderId != null ? ` (ID: ${encoderId})` : ""}
+              </span>
+            </div>
+            <button
+              className="px-4 py-2 rounded-lg bg-black text-white text-sm disabled:opacity-50"
+              disabled={!canSubmit || submitting}
+              onClick={handleSubmit}
+            >
+              {mode === "create" ? "Register Salesman" : "Save Changes"}
+            </button>
+          </div>
         </div>
       </div>
     </div>

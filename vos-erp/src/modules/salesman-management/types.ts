@@ -4,6 +4,7 @@ export type Salesman = {
     code?: string | null; // salesman_code
     name: string; // salesman_name
     employee_id?: number | null;
+    encoder_id?: number | null; // NEW: encoder (current logged-in user)
     email?: string | null;
     phone?: string | null;
     territory?: string | null;

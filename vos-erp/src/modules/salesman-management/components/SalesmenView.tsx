@@ -26,6 +26,8 @@ export function SalesmenView({ provider }: { provider: DataProvider }) {
     const [companyNames, setCompanyNames] = useState<Record<string, string>>({});
     // Price type name lookup map (id -> price_type_name)
     const [priceTypeNames, setPriceTypeNames] = useState<Record<string, string>>({});
+    // User name lookup map (user_id -> full name) for Encoder display
+    const [userNames, setUserNames] = useState<Record<string, string>>({});
 
     // Load branches once to resolve branch_name from numeric/code values
     useEffect(() => {
@@ -127,6 +129,33 @@ export function SalesmenView({ provider }: { provider: DataProvider }) {
         };
     }, []);
 
+    // Load users once to resolve encoder name from numeric values
+    useEffect(() => {
+        let alive = true;
+        (async () => {
+            try {
+                const res = await fetch(apiUrl("items/user"));
+                if (!res.ok) return;
+                const json = await res.json();
+                const rows: any[] = json?.data ?? [];
+                const map: Record<string, string> = {};
+                for (const u of rows) {
+                    const id = u.user_id ?? u.id;
+                    if (id != null) {
+                        const name: string = [u.user_fname, u.user_lname].filter(Boolean).join(" ").trim() || u.user_email || String(id);
+                        map[String(id)] = name;
+                    }
+                }
+                if (alive) setUserNames(map);
+            } catch {
+                // ignore errors; fallback to showing raw value
+            }
+        })();
+        return () => {
+            alive = false;
+        };
+    }, []);
+
     async function refresh() {
         const { items, total } = await provider.listSalesmen({ q, limit: 100 });
         setRows(items);
@@ -174,6 +203,13 @@ export function SalesmenView({ provider }: { provider: DataProvider }) {
         if (val === null || val === undefined || val === "") return "-";
         const key = String(val);
         return priceTypeNames[key] ?? String(val);
+    }
+
+    function displayEncoder(val: any): string {
+        if (val === null || val === undefined || val === "") return "-";
+        const key = String(val);
+        const name = userNames[key];
+        return name ? `${name} (ID: ${key})` : String(val);
     }
 
     return (
@@ -297,6 +333,7 @@ export function SalesmenView({ provider }: { provider: DataProvider }) {
                             <tr className="border-t"><td className="p-3 font-medium text-gray-600">Company</td><td className="p-3">{displayCompany(selected.company_code)}</td></tr>
                             <tr className="border-t"><td className="p-3 font-medium text-gray-600">Price Type</td><td className="p-3">{displayPriceType(selected.price_type)}</td></tr>
                             <tr className="border-t"><td className="p-3 font-medium text-gray-600">Active</td><td className="p-3">{selected.isActive !== false ? "Yes" : "No"}</td></tr>
+                            <tr className="border-t"><td className="p-3 font-medium text-gray-600">Encoder</td><td className="p-3">{displayEncoder(selected.encoder_id)}</td></tr>
                             <tr className="border-t"><td className="p-3 font-medium text-gray-600">Modified Date</td><td className="p-3">{selected.hireDate ?? "-"}</td></tr>
                         </tbody>
                     </table>
