@@ -90,15 +90,16 @@ async function http<T = any>(input: string, init?: RequestInit): Promise<T> {
 }
 
 export const fetchProvider = (): DataProvider => ({
-    async listSalesmen({ q, limit = 50, offset = 0 }: ListParams) {
+    async listSalesmen({ q, limit = 20, offset = 0 }: ListParams) {
         const url = new URL(BASE);
         if (q && q.trim().length > 0) url.searchParams.set("search", q.trim());
         url.searchParams.set("limit", String(limit));
         url.searchParams.set("offset", String(offset));
+        url.searchParams.set("meta", "filter_count");
 
-        const json = await http<{ data: any[] }>(url.toString());
+        const json = await http<{ data: any[], meta: { filter_count: number } }>(url.toString());
         const items = (json.data || []).map(toUI);
-        return { items, total: items.length };
+        return { items, total: json.meta?.filter_count ?? items.length };
     },
 
     async getSalesman(id) {

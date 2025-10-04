@@ -4,6 +4,12 @@ import { itemsUrl } from "../../../config/api";
 
 const BASE = itemsUrl("customer"); // Use absolute URL to external API
 
+export type ListParams = {
+    q?: string;
+    limit?: number;
+    offset?: number;
+};
+
 function toUI(row: any): Customer {
   return {
     id: row.id,
@@ -86,25 +92,19 @@ async function http<T = any>(input: string, init?: RequestInit): Promise<T> {
 }
 
 export const fetchProvider = () => ({
-  async listCustomers({ q }: { q?: string }) {
+  async listCustomers({ q, limit = 20, offset = 0 }: ListParams) {
+    const url = new URL(BASE);
+    if (q && q.trim().length > 0) {
+        url.searchParams.set("search", q.trim());
+    }
+    url.searchParams.set("limit", String(limit));
+    url.searchParams.set("offset", String(offset));
+    url.searchParams.set("meta", "filter_count");
+
     try {
-      const json = await http<{ data: any[] }>(BASE);
-      let items = (json?.data ?? []).map(toUI);
-      if (q && q.trim().length > 0) {
-        const term = q.trim().toLowerCase();
-        items = items.filter((c) => {
-          const cityProv = [c.city, c.province].filter(Boolean).join(" ").toLowerCase();
-          return (
-            c.customer_code?.toLowerCase().includes(term) ||
-            c.customer_name?.toLowerCase().includes(term) ||
-            c.store_name?.toLowerCase().includes(term) ||
-            (c.customer_email ?? "").toLowerCase().includes(term) ||
-            (c.contact_number ?? "").toLowerCase().includes(term) ||
-            cityProv.includes(term)
-          );
-        });
-      }
-      return { items, total: items.length };
+      const json = await http<{ data: any[], meta: { filter_count: number } }>(url.toString());
+      const items = (json?.data ?? []).map(toUI);
+      return { items, total: json.meta?.filter_count ?? items.length };
     } catch (e) {
       console.error("Failed to list customers:", e);
       return { items: [], total: 0 }; // Return empty on error

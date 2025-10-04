@@ -10,6 +10,8 @@ export function CustomerView({ provider }: { provider: ReturnType<typeof import(
   const [q, setQ] = useState("");
   const [rows, setRows] = useState<Customer[]>([]);
   const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const limit = 20;
 
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<"create" | "edit">("create");
@@ -19,15 +21,19 @@ export function CustomerView({ provider }: { provider: ReturnType<typeof import(
   const [discountTypes, setDiscountTypes] = useState<{ id: number; discount_type: string }[]>([]);
   const [users, setUsers] = useState<{ user_id: number; user_fname: string; user_lname: string }[]>([]);
 
+  const totalPages = useMemo(() => Math.ceil(total / limit), [total, limit]);
+
   async function refresh() {
-    const { items, total } = await provider.listCustomers({ q, limit: 200 } as any);
+    const offset = (page - 1) * limit;
+    const { items, total } = await provider.listCustomers({ q, limit, offset });
     setRows(items);
     setTotal(total);
   }
 
   useEffect(() => {
     let alive = true;
-    provider.listCustomers({ q, limit: 200 } as any).then(({ items, total }) => {
+    const offset = (page - 1) * limit;
+    provider.listCustomers({ q, limit, offset }).then(({ items, total }) => {
       if (!alive) return;
       setRows(items);
       setTotal(total);
@@ -44,7 +50,7 @@ export function CustomerView({ provider }: { provider: ReturnType<typeof import(
     return () => {
       alive = false;
     };
-  }, [q, provider]);
+  }, [q, page, provider]);
 
   const storeTypeMap = useMemo(() => {
     return storeTypes.reduce((acc, type) => {
@@ -151,6 +157,27 @@ export function CustomerView({ provider }: { provider: ReturnType<typeof import(
               )}
             </tbody>
           </table>
+          <div className="flex justify-between items-center p-3 border-t">
+            <div className="text-sm text-gray-500">
+              Page {page} of {totalPages} ({total} items)
+            </div>
+            <div className="flex gap-2">
+              <button
+                className="text-sm px-3 py-1 rounded border disabled:opacity-50"
+                disabled={page <= 1}
+                onClick={() => setPage(p => p - 1)}
+              >
+                Previous
+              </button>
+              <button
+                className="text-sm px-3 py-1 rounded border disabled:opacity-50"
+                disabled={page >= totalPages}
+                onClick={() => setPage(p => p + 1)}
+              >
+                Next
+              </button>
+            </div>
+          </div>
         </div>
       ) : (
         <div className="overflow-hidden border border-gray-200 rounded-xl">

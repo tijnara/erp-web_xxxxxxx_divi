@@ -12,6 +12,8 @@ export function SalesmenView({ provider }: { provider: DataProvider }) {
     const [q, setQ] = useState("");
     const [rows, setRows] = useState<Salesman[]>([]);
     const [total, setTotal] = useState(0);
+    const [page, setPage] = useState(1);
+    const limit = 20;
 
     const [open, setOpen] = useState(false);
     const [mode, setMode] = useState<"create" | "edit">("create");
@@ -28,6 +30,8 @@ export function SalesmenView({ provider }: { provider: DataProvider }) {
     const [priceTypeNames, setPriceTypeNames] = useState<Record<string, string>>({});
     // User name lookup map (user_id -> full name) for Encoder display
     const [userNames, setUserNames] = useState<Record<string, string>>({});
+
+    const totalPages = useMemo(() => Math.ceil(total / limit), [total, limit]);
 
     // Load branches once to resolve branch_name from numeric/code values
     useEffect(() => {
@@ -157,14 +161,16 @@ export function SalesmenView({ provider }: { provider: DataProvider }) {
     }, []);
 
     async function refresh() {
-        const { items, total } = await provider.listSalesmen({ q, limit: 100 });
+        const offset = (page - 1) * limit;
+        const { items, total } = await provider.listSalesmen({ q, limit, offset });
         setRows(items);
         setTotal(total);
     }
 
     useEffect(() => {
         let alive = true;
-        provider.listSalesmen({ q, limit: 100 }).then(({ items, total }) => {
+        const offset = (page - 1) * limit;
+        provider.listSalesmen({ q, limit, offset }).then(({ items, total }) => {
             if (!alive) return;
             setRows(items);
             setTotal(total);
@@ -172,7 +178,7 @@ export function SalesmenView({ provider }: { provider: DataProvider }) {
         return () => {
             alive = false;
         };
-    }, [q, provider]);
+    }, [q, page, provider]);
 
     const stats = useMemo(() => {
         const active = rows.filter((r) => r.isActive !== false).length;
@@ -298,6 +304,27 @@ export function SalesmenView({ provider }: { provider: DataProvider }) {
                             )}
                         </tbody>
                     </table>
+                    <div className="flex justify-between items-center p-3 border-t">
+                        <div className="text-sm text-gray-500">
+                            Page {page} of {totalPages} ({total} items)
+                        </div>
+                        <div className="flex gap-2">
+                            <button
+                                className="text-sm px-3 py-1 rounded border disabled:opacity-50"
+                                disabled={page <= 1}
+                                onClick={() => setPage(p => p - 1)}
+                            >
+                                Previous
+                            </button>
+                            <button
+                                className="text-sm px-3 py-1 rounded border disabled:opacity-50"
+                                disabled={page >= totalPages}
+                                onClick={() => setPage(p => p + 1)}
+                            >
+                                Next
+                            </button>
+                        </div>
+                    </div>
                 </div>
             ) : (
                 <div className="overflow-hidden border border-gray-200 rounded-xl">

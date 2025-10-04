@@ -27,6 +27,7 @@ export default function LoginPage() {
     const [rf, setRf] = useState('');
     const [err, setErr] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
+    const [debug, setDebug] = useState<any>(null);
 
     const rfidInputRef = useRef<HTMLInputElement>(null);
 
@@ -38,18 +39,34 @@ export default function LoginPage() {
 
     async function loginPassword(e: React.FormEvent) {
         e.preventDefault();
-        setErr(null); setLoading(true);
-        const res = await fetch('/api/auth/login', {
-            method: 'POST', headers: { 'Content-Type':'application/json' },
-            body: JSON.stringify({ email, password })
-        });
-        setLoading(false);
-        if (!res.ok) {
-            const j = await res.json().catch(()=> ({}));
-            setErr(j?.error || 'Login failed');
-            return;
+        setErr(null); setLoading(true); setDebug(null);
+        try {
+            const res = await fetch('http://100.119.3.44:8090/items/user');
+            const json = await res.json();
+            setDebug({ fetchStatus: res.status, usersCount: (json.data || []).length });
+            const users = json.data || [];
+            const user = users.find(
+                (u: any) =>
+                    u.user_email === email &&
+                    u.user_password === password &&
+                    u.isAdmin === 1
+            );
+            setDebug((d: any) => ({ ...d, matchedUser: user ? { id: user.user_id, email: user.user_email, isAdmin: user.isAdmin } : null }));
+            setLoading(false);
+            if (!user) {
+                setErr('Invalid credentials or not an admin.');
+                return;
+            }
+            // Set a cookie for the middleware and store user info
+            document.cookie = "vos_app_access=true; path=/; max-age=86400"; // Expires in 1 day
+            localStorage.setItem('user', JSON.stringify(user));
+            setDebug((d: any) => ({ ...d, redirecting: true, cookieSet: true }));
+            router.replace(nextPath);
+        } catch (err) {
+            setLoading(false);
+            setErr('Login failed. Please try again.');
+            setDebug((d: any) => ({ ...d, error: String(err) }));
         }
-        router.replace(nextPath);
     }
 
     async function loginRfid(e: React.FormEvent) {
@@ -99,6 +116,7 @@ export default function LoginPage() {
                                    className="border rounded px-3 py-2 w-full bg-white dark:bg-zinc-900"/>
                         </div>
                         {err && <div className="text-red-600 text-sm">{err}</div>}
+                        {debug && <pre className="text-xs text-zinc-500 bg-zinc-100 p-2 rounded mt-2 overflow-x-auto">{JSON.stringify(debug, null, 2)}</pre>}
                         <button disabled={loading} className="w-full rounded px-3 py-2 border bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 disabled:opacity-60">
                             {loading ? 'Signing in…' : 'Login'}
                         </button>
