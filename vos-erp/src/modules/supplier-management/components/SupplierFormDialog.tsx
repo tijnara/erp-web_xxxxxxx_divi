@@ -6,6 +6,8 @@ import type { Supplier, UpsertSupplierDTO } from "../types";
 type Province = { province_code: string; province_name: string; region_code?: string; psgc_code?: string };
 type City = { city_code: string; city_name: string; province_code: string; region_desc?: string; psgc_code?: string };
 type Barangay = { brgy_code: string; brgy_name: string; city_code: string; province_code?: string; region_code?: string };
+type Country = { name: string };
+type DeliveryTerm = { id: number; delivery_name: string };
 
 
 function InputLabel({ children, required }: { children: any; required?: boolean }) {
@@ -45,7 +47,7 @@ export function SupplierFormDialog({
   const [tin_number, setTinNumber] = useState(initial?.tin_number ?? "");
   const [bank_details, setBankDetails] = useState(initial?.bank_details ?? "");
   const [payment_terms, setPaymentTerms] = useState(initial?.payment_terms ?? "Cash On Delivery");
-  const [delivery_terms, setDeliveryTerms] = useState(initial?.delivery_terms ?? "Delivery");
+  const [delivery_terms, setDeliveryTerms] = useState<number | null>(null);
   const [agreement_or_contract, setAgreementOrContract] = useState(initial?.agreement_or_contract ?? "");
   const [preferred_communication_method, setPreferredCommunicationMethod] = useState(initial?.preferred_communication_method ?? "");
   const [notes_or_comments, setNotesOrComments] = useState(initial?.notes_or_comments ?? "");
@@ -61,6 +63,8 @@ export function SupplierFormDialog({
   const [provinces, setProvinces] = useState<Province[]>([]);
   const [cities, setCities] = useState<City[]>([]);
   const [barangays, setBarangays] = useState<Barangay[]>([]);
+  const [countries, setCountries] = useState<Country[]>([]);
+  const [deliveryTermsOptions, setDeliveryTermsOptions] = useState<DeliveryTerm[]>([]);
   const [loadingGeo, setLoadingGeo] = useState<boolean>(false);
 
   // Derived filtered lists
@@ -108,7 +112,7 @@ export function SupplierFormDialog({
     setTinNumber(initial?.tin_number ?? "");
     setBankDetails(initial?.bank_details ?? "");
     setPaymentTerms(initial?.payment_terms ?? "Cash On Delivery");
-    setDeliveryTerms(initial?.delivery_terms ?? "Delivery");
+    setDeliveryTerms(typeof initial?.delivery_terms === 'number' ? initial.delivery_terms : null);
     setAgreementOrContract(initial?.agreement_or_contract ?? "");
     setPreferredCommunicationMethod(initial?.preferred_communication_method ?? "");
     setNotesOrComments(initial?.notes_or_comments ?? "");
@@ -121,12 +125,29 @@ export function SupplierFormDialog({
         const provMod = await import("../../../../data/province.json");
         const cityMod = await import("../../../../data/city.json");
         const brgyMod = await import("../../../../data/barangay.json");
+        const countryMod = await import("../../../../data/countries.json");
         const provArr: Province[] = (provMod as any).default ?? (provMod as any);
         const cityArr: City[] = (cityMod as any).default ?? (cityMod as any);
         const brgyArr: Barangay[] = (brgyMod as any).default ?? (brgyMod as any);
+        const countryArr: Country[] = (countryMod as any).default ?? (countryMod as any);
         setProvinces(provArr);
         setCities(cityArr);
         setBarangays(brgyArr);
+        setCountries(countryArr);
+
+        fetch("http://100.119.3.44:8090/items/delivery_terms")
+          .then((res) => res.json())
+          .then((data) => {
+            const terms = data.data as DeliveryTerm[];
+            setDeliveryTermsOptions(terms);
+            // If initial.delivery_terms is a string name, find the corresponding ID
+            if (initial?.delivery_terms) {
+              const term = terms.find(t => t.id === initial.delivery_terms);
+              if (term) {
+                setDeliveryTerms(term.id);
+              }
+            }
+          });
 
         // Derive codes from existing text (if any)
         const pCode = findProvinceCodeByName(initial?.state_province ?? "");
@@ -142,6 +163,8 @@ export function SupplierFormDialog({
         setProvinces([]);
         setCities([]);
         setBarangays([]);
+        setCountries([]);
+        setDeliveryTermsOptions([]);
         setProvinceCode("");
         setCityCode("");
       } finally {
@@ -172,6 +195,12 @@ export function SupplierFormDialog({
     if (!canSubmit) return;
     try {
       setSubmitting(true);
+      const today = new Date();
+      const year = today.getFullYear();
+      const month = String(today.getMonth() + 1).padStart(2, '0');
+      const day = String(today.getDate()).padStart(2, '0');
+      const formattedDate = `${year}-${month}-${day}`;
+
       const dto: UpsertSupplierDTO = {
         supplier_name,
         supplier_shortcut,
@@ -193,6 +222,7 @@ export function SupplierFormDialog({
         preferred_communication_method,
         notes_or_comments,
         isActive,
+        date_added: mode === 'create' ? formattedDate : initial?.date_added,
       };
       await onSubmit(dto);
       onClose();
@@ -298,7 +328,11 @@ export function SupplierFormDialog({
           </div>
           <div>
             <InputLabel>Country</InputLabel>
-            <input value={country} onChange={(e) => setCountry(e.target.value)} className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm" />
+            <select value={country} onChange={(e) => setCountry(e.target.value)} className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm bg-white">
+              {countries.map((c) => (
+                <option key={c.name} value={c.name}>{c.name}</option>
+              ))}
+            </select>
           </div>
           <div>
             <InputLabel>Supplier Type</InputLabel>
@@ -318,7 +352,12 @@ export function SupplierFormDialog({
           </div>
           <div>
             <InputLabel>Delivery Terms</InputLabel>
-            <input value={delivery_terms ?? ""} onChange={(e) => setDeliveryTerms(e.target.value)} className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm" />
+            <select value={delivery_terms ?? ""} onChange={(e) => setDeliveryTerms(Number(e.target.value) || null)} className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm bg-white">
+              <option value="">Select Delivery Term</option>
+              {deliveryTermsOptions.map((d) => (
+                <option key={d.id} value={d.id}>{d.delivery_name}</option>
+              ))}
+            </select>
           </div>
           <div>
             <InputLabel>Agreement/Contract</InputLabel>
@@ -353,4 +392,3 @@ export function SupplierFormDialog({
     </div>
   );
 }
-

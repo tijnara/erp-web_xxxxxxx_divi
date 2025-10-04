@@ -15,7 +15,7 @@ export type Supplier = {
   tin_number: string;
   bank_details: string;
   payment_terms: string;
-  delivery_terms: string | null;
+  delivery_terms: number | null;
   agreement_or_contract: string;
   preferred_communication_method: string;
   notes_or_comments: string;
@@ -29,4 +29,3 @@ export type Supplier = {
 };
 
 export type UpsertSupplierDTO = Partial<Omit<Supplier, "id">>;
-

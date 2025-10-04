@@ -5,6 +5,8 @@ import type { DataProvider } from "../providers/DataProvider";
 import type { Supplier } from "../types";
 import { SupplierFormDialog } from "./SupplierFormDialog";
 
+type DeliveryTerm = { id: number; delivery_name: string };
+
 export function SuppliersView({ provider }: { provider: DataProvider }) {
     const [q, setQ] = useState("");
     const [rows, setRows] = useState<Supplier[]>([]);
@@ -16,6 +18,7 @@ export function SuppliersView({ provider }: { provider: DataProvider }) {
     const [mode, setMode] = useState<"create" | "edit">("create");
     const [current, setCurrent] = useState<Supplier | null>(null);
     const [selected, setSelected] = useState<Supplier | null>(null);
+    const [deliveryTerms, setDeliveryTerms] = useState<DeliveryTerm[]>([]);
 
     const totalPages = useMemo(() => Math.ceil(total / limit), [total, limit]);
 
@@ -34,6 +37,13 @@ export function SuppliersView({ provider }: { provider: DataProvider }) {
             setRows(items);
             setTotal(total);
         });
+        fetch("http://100.119.3.44:8090/items/delivery_terms")
+            .then((res) => res.json())
+            .then((data) => {
+                if (alive && data.data) {
+                    setDeliveryTerms(data.data);
+                }
+            });
         return () => {
             alive = false;
         };
@@ -180,7 +190,7 @@ export function SuppliersView({ provider }: { provider: DataProvider }) {
                             <tr className="border-t"><td className="p-3 font-medium text-gray-600">Address</td><td className="p-3">{selected.address}</td></tr>
                             <tr className="border-t"><td className="p-3 font-medium text-gray-600">TIN</td><td className="p-3">{selected.tin_number ?? "-"}</td></tr>
                             <tr className="border-t"><td className="p-3 font-medium text-gray-600">Payment Terms</td><td className="p-3">{selected.payment_terms ?? "-"}</td></tr>
-                            <tr className="border-t"><td className="p-3 font-medium text-gray-600">Delivery Terms</td><td className="p-3">{selected.delivery_terms ?? "-"}</td></tr>
+                            <tr className="border-t"><td className="p-3 font-medium text-gray-600">Delivery Terms</td><td className="p-3">{deliveryTerms.find(d => d.id === selected.delivery_terms)?.delivery_name ?? selected.delivery_terms ?? "-"}</td></tr>
                             <tr className="border-t"><td className="p-3 font-medium text-gray-600">Date Added</td><td className="p-3">{selected.date_added}</td></tr>
                             <tr className="border-t"><td className="p-3 font-medium text-gray-600">Is Active</td><td className="p-3">{selected.isActive ? "Yes" : "No"}</td></tr>
                         </tbody>
@@ -205,7 +215,7 @@ export function SuppliersView({ provider }: { provider: DataProvider }) {
                             const latest = await provider.getSupplier(selected.id);
                             setSelected(latest);
                         } catch (e) {
-                            // ignore
+                            // ignore if fetch fails
                         }
                     }
                 }}
@@ -213,4 +223,3 @@ export function SuppliersView({ provider }: { provider: DataProvider }) {
         </div>
     );
 }
-
