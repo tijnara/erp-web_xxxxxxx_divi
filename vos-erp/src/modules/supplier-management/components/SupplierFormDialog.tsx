@@ -8,6 +8,7 @@ type City = { city_code: string; city_name: string; province_code: string; regio
 type Barangay = { brgy_code: string; brgy_name: string; city_code: string; province_code?: string; region_code?: string };
 type Country = { name: string };
 type DeliveryTerm = { id: number; delivery_name: string };
+type SupplierType = { id: number; transaction_type: string };
 
 
 function InputLabel({ children, required }: { children: any; required?: boolean }) {
@@ -43,7 +44,7 @@ export function SupplierFormDialog({
   const [state_province, setStateProvince] = useState(initial?.state_province ?? "");
   const [postal_code, setPostalCode] = useState(initial?.postal_code ?? "");
   const [country, setCountry] = useState(initial?.country ?? "Philippines");
-  const [supplier_type, setSupplierType] = useState(initial?.supplier_type ?? "TRADE");
+  const [supplier_type, setSupplierType] = useState<string | null>(initial?.supplier_type ?? null);
   const [tin_number, setTinNumber] = useState(initial?.tin_number ?? "");
   const [bank_details, setBankDetails] = useState(initial?.bank_details ?? "");
   const [payment_terms, setPaymentTerms] = useState(initial?.payment_terms ?? "Cash On Delivery");
@@ -65,6 +66,7 @@ export function SupplierFormDialog({
   const [barangays, setBarangays] = useState<Barangay[]>([]);
   const [countries, setCountries] = useState<Country[]>([]);
   const [deliveryTermsOptions, setDeliveryTermsOptions] = useState<DeliveryTerm[]>([]);
+  const [supplierTypes, setSupplierTypes] = useState<SupplierType[]>([]);
   const [loadingGeo, setLoadingGeo] = useState<boolean>(false);
 
   // Derived filtered lists
@@ -108,7 +110,7 @@ export function SupplierFormDialog({
     setStateProvince(initial?.state_province ?? "");
     setPostalCode(initial?.postal_code ?? "");
     setCountry(initial?.country ?? "Philippines");
-    setSupplierType(initial?.supplier_type ?? "TRADE");
+    setSupplierType(initial?.supplier_type ?? null);
     setTinNumber(initial?.tin_number ?? "");
     setBankDetails(initial?.bank_details ?? "");
     setPaymentTerms(initial?.payment_terms ?? "Cash On Delivery");
@@ -122,32 +124,48 @@ export function SupplierFormDialog({
     (async () => {
       setLoadingGeo(true);
       try {
-        const provMod = await import("../../../../data/province.json");
-        const cityMod = await import("../../../../data/city.json");
-        const brgyMod = await import("../../../../data/barangay.json");
-        const countryMod = await import("../../../../data/countries.json");
-        const provArr: Province[] = (provMod as any).default ?? (provMod as any);
-        const cityArr: City[] = (cityMod as any).default ?? (cityMod as any);
-        const brgyArr: Barangay[] = (brgyMod as any).default ?? (brgyMod as any);
-        const countryArr: Country[] = (countryMod as any).default ?? (countryMod as any);
+        const [
+          countries,
+          provinces,
+          cities,
+          barangays,
+          deliveryTermsResponse,
+          supplierTypesResponse,
+        ] = await Promise.all([
+          import("../../../../data/countries.json"),
+          import("../../../../data/province.json"),
+          import("../../../../data/city.json"),
+          import("../../../../data/barangay.json"),
+          fetch("http://100.119.3.44:8090/items/delivery_terms"),
+          fetch("http://100.119.3.44:8090/items/transaction_type"),
+        ]);
+
+        const deliveryTerms = await deliveryTermsResponse.json();
+        const supplierTypes = await supplierTypesResponse.json();
+
+        const provArr: Province[] = (provinces as any).default ?? provinces;
+        const cityArr: City[] = (cities as any).default ?? cities;
+        const brgyArr: Barangay[] = (barangays as any).default ?? barangays;
+        const countryArr: Country[] = (countries as any).default ?? countries;
+
+        setCountries(countryArr);
         setProvinces(provArr);
         setCities(cityArr);
         setBarangays(brgyArr);
-        setCountries(countryArr);
 
-        fetch("http://100.119.3.44:8090/items/delivery_terms")
-          .then((res) => res.json())
-          .then((data) => {
-            const terms = data.data as DeliveryTerm[];
-            setDeliveryTermsOptions(terms);
-            // If initial.delivery_terms is a string name, find the corresponding ID
-            if (initial?.delivery_terms) {
-              const term = terms.find(t => t.id === initial.delivery_terms);
-              if (term) {
-                setDeliveryTerms(term.id);
-              }
+        if (deliveryTerms.data) {
+          const terms = deliveryTerms.data as DeliveryTerm[];
+          setDeliveryTermsOptions(terms);
+          if (initial?.delivery_terms) {
+            const term = terms.find((t) => t.id === initial.delivery_terms);
+            if (term) {
+              setDeliveryTerms(term.id);
             }
-          });
+          }
+        }
+        if (supplierTypes.data) {
+          setSupplierTypes(supplierTypes.data);
+        }
 
         // Derive codes from existing text (if any)
         const pCode = findProvinceCodeByName(initial?.state_province ?? "");
@@ -165,6 +183,7 @@ export function SupplierFormDialog({
         setBarangays([]);
         setCountries([]);
         setDeliveryTermsOptions([]);
+        setSupplierTypes([]);
         setProvinceCode("");
         setCityCode("");
       } finally {
@@ -336,13 +355,20 @@ export function SupplierFormDialog({
           </div>
           <div>
             <InputLabel>Supplier Type</InputLabel>
-            <input value={supplier_type} onChange={(e) => setSupplierType(e.target.value)} className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm" />
+            <select value={supplier_type ?? ""} onChange={(e) => setSupplierType(e.target.value)} className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm bg-white">
+              <option value="">-- Select Type --</option>
+              {supplierTypes.map((t) => (
+                <option key={t.id} value={t.transaction_type}>
+                  {t.transaction_type}
+                </option>
+              ))}
+            </select>
           </div>
-          <div>
-            <InputLabel>TIN Number</InputLabel>
+          <div className="col-span-2">
+            <InputLabel>TIN #</InputLabel>
             <input value={tin_number} onChange={(e) => setTinNumber(e.target.value)} className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm" />
           </div>
-          <div>
+          <div className="col-span-2">
             <InputLabel>Bank Details</InputLabel>
             <input value={bank_details} onChange={(e) => setBankDetails(e.target.value)} className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm" />
           </div>

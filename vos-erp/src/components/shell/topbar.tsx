@@ -22,7 +22,7 @@ export function Topbar() {
         let mounted = true;
         (async () => {
             try {
-                const res = await fetch("/api/auth/me", { cache: "no-store" });
+                const res = await fetch("http://100.119.3.44:8090/users/me", { cache: "no-store" });
                 const json: MeResponse = await res.json();
                 if (mounted) setMe(json?.user ?? null);
             } catch {

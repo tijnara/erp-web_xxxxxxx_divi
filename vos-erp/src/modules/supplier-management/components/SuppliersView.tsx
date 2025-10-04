@@ -6,6 +6,7 @@ import type { Supplier } from "../types";
 import { SupplierFormDialog } from "./SupplierFormDialog";
 
 type DeliveryTerm = { id: number; delivery_name: string };
+type SupplierType = { id: number; transaction_type: string };
 
 export function SuppliersView({ provider }: { provider: DataProvider }) {
     const [q, setQ] = useState("");
@@ -19,6 +20,7 @@ export function SuppliersView({ provider }: { provider: DataProvider }) {
     const [current, setCurrent] = useState<Supplier | null>(null);
     const [selected, setSelected] = useState<Supplier | null>(null);
     const [deliveryTerms, setDeliveryTerms] = useState<DeliveryTerm[]>([]);
+    const [supplierTypes, setSupplierTypes] = useState<SupplierType[]>([]);
 
     const totalPages = useMemo(() => Math.ceil(total / limit), [total, limit]);
 
@@ -82,7 +84,7 @@ export function SuppliersView({ provider }: { provider: DataProvider }) {
                                 <th className="text-left p-3">Name</th>
                                 <th className="text-left p-3">Shortcut</th>
                                 <th className="text-left p-3">Contact Person</th>
-                                <th className="text-left p-3">Type</th>
+                                <th className="text-left p-3">Supplier Type</th>
                                 <th className="text-left p-3">Active</th>
                                 <th className="text-left p-3">Actions</th>
                             </tr>
@@ -91,38 +93,26 @@ export function SuppliersView({ provider }: { provider: DataProvider }) {
                             {rows.map((r) => (
                                 <tr
                                     key={r.id}
-                                    className="border-t hover:bg-gray-50 cursor-pointer"
+                                    className="border-b border-gray-200 hover:bg-gray-50 cursor-pointer"
                                     onClick={() => setSelected(r)}
                                 >
                                     <td className="p-3">{r.supplier_name}</td>
                                     <td className="p-3">{r.supplier_shortcut}</td>
-                                    <td className="p-3">{r.contact_person ?? "-"}</td>
-                                    <td className="p-3">{r.supplier_type}</td>
+                                    <td className="p-3">{r.contact_person}</td>
+                                    <td className="p-3">{r.supplier_type ?? 'N/A'}</td>
+                                    <td className="p-3">{r.isActive ? "Yes" : "No"}</td>
                                     <td className="p-3">
-                                        <span
-                                            className={`text-xs px-2 py-1 rounded-full ${
-                                                r.isActive
-                                                    ? "bg-blue-600 text-white"
-                                                    : "bg-gray-200 text-gray-700"
-                                            }`}
+                                        <button
+                                            className="px-2 py-1 rounded-lg border text-xs"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setMode("edit");
+                                                setCurrent(r);
+                                                setOpen(true);
+                                            }}
                                         >
-                                            {r.isActive ? "Yes" : "No"}
-                                        </span>
-                                    </td>
-                                    <td className="p-3">
-                                        <div className="flex gap-2">
-                                            <button
-                                                className="text-xs px-2 py-1 rounded border"
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    setMode("edit");
-                                                    setCurrent(r);
-                                                    setOpen(true);
-                                                }}
-                                            >
-                                                Edit
-                                            </button>
-                                        </div>
+                                            Edit
+                                        </button>
                                     </td>
                                 </tr>
                             ))}
@@ -188,6 +178,7 @@ export function SuppliersView({ provider }: { provider: DataProvider }) {
                             <tr className="border-t"><td className="p-3 font-medium text-gray-600">Email</td><td className="p-3">{selected.email_address ?? "-"}</td></tr>
                             <tr className="border-t"><td className="p-3 font-medium text-gray-600">Phone</td><td className="p-3">{selected.phone_number ?? "-"}</td></tr>
                             <tr className="border-t"><td className="p-3 font-medium text-gray-600">Address</td><td className="p-3">{selected.address}</td></tr>
+                            <tr className="border-t"><td className="p-3 font-medium text-gray-600">Supplier Type</td><td className="p-3">{selected.supplier_type ?? "-"}</td></tr>
                             <tr className="border-t"><td className="p-3 font-medium text-gray-600">TIN</td><td className="p-3">{selected.tin_number ?? "-"}</td></tr>
                             <tr className="border-t"><td className="p-3 font-medium text-gray-600">Payment Terms</td><td className="p-3">{selected.payment_terms ?? "-"}</td></tr>
                             <tr className="border-t"><td className="p-3 font-medium text-gray-600">Delivery Terms</td><td className="p-3">{deliveryTerms.find(d => d.id === selected.delivery_terms)?.delivery_name ?? selected.delivery_terms ?? "-"}</td></tr>

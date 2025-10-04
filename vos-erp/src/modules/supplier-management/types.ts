@@ -11,7 +11,7 @@ export type Supplier = {
   state_province: string;
   postal_code: string;
   country: string;
-  supplier_type: string;
+  supplier_type: string | null;
   tin_number: string;
   bank_details: string;
   payment_terms: string;
