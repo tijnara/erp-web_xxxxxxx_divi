@@ -103,7 +103,12 @@ export function CustomerFormDialog({
     if (mode === "create") {
       (async () => {
         try {
-          const res = await fetch("/api/auth/me", { cache: "no-store" });
+          const res = await fetch("http://100.119.3.44:8090/users/me", {
+            cache: "no-store",
+            headers: {
+              'Authorization': 'Bearer hTovVgKHSA-XqQFinWFQn6dOu9MFTMs2'
+            }
+          });
           if (!res.ok) return;
           const json = await res.json();
           const u = json?.user;
