@@ -31,9 +31,19 @@ export function PricingView({
         })();
     }, [products, provider]);
 
-    const valueFor = (pid: Product["id"], ptid: PriceType["id"]) =>
-        pricesByProduct[String(pid)]?.find((pp) => String(pp.priceTypeId) === String(ptid))?.value ??
-        null;
+    const valueFor = (pid: Product["id"], ptid: PriceType["id"]) => {
+        const price = pricesByProduct[String(pid)]?.find((pp) => String(pp.priceTypeId) === String(ptid));
+        if (!price) {
+            return null;
+        }
+        const num = Number(price.value);
+        return {
+            id: price.id,
+            value: isNaN(num) ? null : num,
+            status: price.status,
+        }
+    }
+
 
     return (
         <div className="space-y-4">
@@ -43,32 +53,53 @@ export function PricingView({
                     <div className="text-sm text-gray-500">Code: {p.code ?? "-"}</div>
                     <div className="font-medium">{p.name}</div>
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mt-2">
-                        {priceTypes.map((pt) => (
-                            <div key={pt.id} className="border rounded-lg p-3 bg-gray-50">
-                                <div className="text-xs text-gray-500">{pt.name}</div>
-                                <div className="text-xl font-semibold">
-                                    {valueFor(p.id, pt.id) == null
-                                        ? "$.--"
-                                        : `$${valueFor(p.id, pt.id)!.toFixed(2)}`}
+                        {priceTypes.map((pt) => {
+                            const priceInfo = valueFor(p.id, pt.id);
+                            const priceValue = priceInfo?.value;
+                            return (
+                                <div key={pt.id} className="border rounded-lg p-3 bg-gray-50">
+                                    <div className="text-xs text-gray-500">{pt.name}</div>
+                                    <div className="text-xl font-semibold">
+                                        {typeof priceValue === 'number'
+                                            ? `₱${priceValue.toFixed(2)}`
+                                            : "₱--"}
+                                    </div>
+                                    <div className="flex items-center gap-2 mt-2">
+                                        <button
+                                            className="text-xs border px-2 py-1 rounded"
+                                            onClick={async () => {
+                                                const input = prompt(
+                                                    `Set ${pt.name} price for "${p.name}" (blank to clear)`,
+                                                    String(priceValue ?? "")
+                                                );
+                                                if (input === null) return;
+                                                const val = input.trim() === "" ? null : Number(input);
+                                                await provider.setProductPrice(p.id, pt.id, val);
+                                                const list = await provider.listProductPrices(p.id);
+                                                setPricesByProduct((s) => ({ ...s, [String(p.id)]: list }));
+                                            }}
+                                        >
+                                            {priceValue == null ? "Set" : "Change"}
+                                        </button>
+                                        {priceInfo && priceInfo.status === 'draft' && (
+                                            <button
+                                                className="text-xs border px-2 py-1 rounded bg-green-500 text-white"
+                                                onClick={async () => {
+                                                    if (priceInfo.id) {
+                                                        await provider.approveProductPrice(priceInfo.id);
+                                                        const list = await provider.listProductPrices(p.id);
+                                                        setPricesByProduct((s) => ({ ...s, [String(p.id)]: list }));
+                                                    }
+                                                }}
+                                            >
+                                                Approve
+                                            </button>
+                                        )}
+                                    </div>
+                                    {priceInfo && <div className="text-xs mt-1">Status: {priceInfo.status}</div>}
                                 </div>
-                                <button
-                                    className="mt-2 text-xs border px-2 py-1 rounded"
-                                    onClick={async () => {
-                                        const input = prompt(
-                                            `Set ${pt.name} price for "${p.name}" (blank to clear)`,
-                                            String(valueFor(p.id, pt.id) ?? "")
-                                        );
-                                        if (input === null) return;
-                                        const val = input.trim() === "" ? null : Number(input);
-                                        await provider.setProductPrice(p.id, pt.id, val);
-                                        const list = await provider.listProductPrices(p.id);
-                                        setPricesByProduct((s) => ({ ...s, [String(p.id)]: list }));
-                                    }}
-                                >
-                                    {valueFor(p.id, pt.id) == null ? "Set" : "Change"}
-                                </button>
-                            </div>
-                        ))}
+                            );
+                        })}
                     </div>
                 </div>
             ))}

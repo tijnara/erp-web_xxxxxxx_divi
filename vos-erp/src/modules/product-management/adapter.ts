@@ -14,8 +14,8 @@ export function fromDirectusRow(row: any): Product {
         : null;
     const brand    = row.product_brand    ? ({ id: row.product_brand.brand_id,       name: row.product_brand.brand_name } as Ref)       : null;
     const category = row.product_category ? ({ id: row.product_category.category_id, name: row.product_category.category_name } as Ref) : null;
-    const segment  = row.product_segment  ? ({ id: row.product_segment.segment_id,    name: row.product_segment.segment_name } as Ref)  : null;
-    const section  = row.product_section  ? ({ id: row.product_section.section_id,    name: row.product_section.section_name } as Ref)  : null;
+    const segment  = row.product_segment  ? ({ id: row.product_segment.segment_id,    name: 'fixme' } as Ref)  : null;
+    const section  = row.product_section  ? ({ id: row.product_section.section_id,    name: 'fixme' } as Ref)  : null;
 
     return {
         id: row.product_id,
@@ -24,10 +24,14 @@ export function fromDirectusRow(row: any): Product {
         name: row.product_name ?? '',
         description: row.description ?? null,
         weight_kg: row.product_weight ?? null,
-        stock_qty: row.maintaining_quantity ?? null,
+        stock_qty: row.stock_qty ?? null, // Not in sample, but good to have
+        maintaining_quantity: row.maintaining_quantity ?? null,
         base_price: row.price_per_unit ?? null,
         cost: row.cost_per_unit ?? null,
         isActive: asBool(row.isActive),
+        created_at: row.created_at,
+        last_updated: row.last_updated,
+        created_by: row.created_by,
 
         unit, brand, category, segment, section,
     };
@@ -40,10 +44,11 @@ export function toDirectusBody(dto: UpsertProductDTO) {
         barcode: dto.barcode ?? null,
         description: dto.description ?? null,
         product_weight: dto.weight_kg ?? null,
-        maintaining_quantity: dto.stock_qty ?? null,
+        maintaining_quantity: dto.maintaining_quantity ?? null,
         price_per_unit: dto.base_price ?? null,
         cost_per_unit: dto.cost ?? null,
         isActive: dto.isActive == null ? undefined : (dto.isActive ? 1 : 0),
+        created_by: dto.created_by ?? null,
 
         // relation FK columns (IDs)
         unit_of_measurement: dto.unitId ?? null,
@@ -57,10 +62,10 @@ export function toDirectusBody(dto: UpsertProductDTO) {
 // Helper to keep fields list in one place
 export const ENRICHED_FIELDS =
     [
-        'product_id','product_name','product_code','barcode','price_per_unit','cost_per_unit','isActive','last_updated',
+        'product_id','product_name','product_code','barcode','price_per_unit','cost_per_unit','isActive','last_updated', 'created_at', 'created_by', 'maintaining_quantity',
         'unit_of_measurement.unit_id','unit_of_measurement.unit_name','unit_of_measurement.unit_shortcut',
         'product_brand.brand_id','product_brand.brand_name',
         'product_category.category_id','product_category.category_name',
-        'product_segment.segment_id','product_segment.segment_name',
-        'product_section.section_id','product_section.section_name',
+        'product_segment.segment_id',
+        'product_section.section_id',
     ].join(',');

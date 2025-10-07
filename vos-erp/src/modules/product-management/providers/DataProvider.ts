@@ -14,6 +14,8 @@ export interface DataProvider {
     updateProduct(productId: string | number, data: UpsertProductDTO): Promise<Product>;
     deleteProduct(productId: string | number): Promise<void>;
 
+    getUser(userId: string | number): Promise<{ id: number; first_name: string; last_name: string } | null>;
+
     listPriceTypes(): Promise<PriceType[]>;
     createPriceType(name: string): Promise<PriceType>;
     updatePriceType(id: number | string, name: string): Promise<PriceType>;
@@ -25,4 +27,6 @@ export interface DataProvider {
         priceTypeId: number | string,
         value: number | null
     ): Promise<ProductPrice | null>;
+
+    approveProductPrice(priceId: string | number): Promise<ProductPrice>;
 }

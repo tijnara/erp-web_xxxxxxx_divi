@@ -6,7 +6,7 @@ import type { DataProvider } from "../providers/DataProvider";
 import type { Salesman } from "../types";
 import { StatBar } from "./StatBar";
 import { SalesmanFormDialog } from "./SalesmanFormDialog";
-import { apiUrl } from "../../../config/api";
+import { apiUrl } from "@/config/api";
 
 export function SalesmenView({ provider }: { provider: DataProvider }) {
     const [q, setQ] = useState("");
@@ -223,7 +223,7 @@ export function SalesmenView({ provider }: { provider: DataProvider }) {
             <div className="flex justify-between items-center">
                 <h2 className="text-lg font-semibold">Salesmen</h2>
                 <button
-                    className="px-3 py-2 rounded-lg bg-black text-white text-sm"
+                    className="px-3 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold"
                     onClick={() => {
                         setMode("create");
                         setCurrent(null);
@@ -248,12 +248,11 @@ export function SalesmenView({ provider }: { provider: DataProvider }) {
                     <table className="w-full text-sm">
                         <thead className="bg-gray-50 text-gray-600">
                             <tr>
-                                <th className="text-left p-3">Code</th>
-                                <th className="text-left p-3">Name</th>
-                                <th className="text-left p-3">Truck Plate</th>
-                                <th className="text-left p-3">Branch</th>
-                                <th className="text-left p-3">Active</th>
-                                <th className="text-left p-3">Actions</th>
+                                <th className="text-left p-3 font-medium">Salesman Name</th>
+                                <th className="text-left p-3 font-medium">Salesman Code</th>
+                                <th className="text-left p-3 font-medium">Branch</th>
+                                <th className="text-left p-3 font-medium">Status</th>
+                                <th className="text-left p-3 font-medium">Actions</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -263,19 +262,18 @@ export function SalesmenView({ provider }: { provider: DataProvider }) {
                                     className="border-t hover:bg-gray-50 cursor-pointer"
                                     onClick={() => setSelected(r)}
                                 >
-                                    <td className="p-3">{r.code ?? "-"}</td>
                                     <td className="p-3">{r.name}</td>
-                                    <td className="p-3">{r.truck_plate ?? "-"}</td>
-                                    <td className="p-3">{displayBranch(r.branch_code ?? r.territory)}</td>
+                                    <td className="p-3">{r.code ?? "-"}</td>
+                                    <td className="p-3">{displayBranch(r.branch_code)}</td>
                                     <td className="p-3">
                                         <span
-                                            className={`text-xs px-2 py-1 rounded-full ${
-                                                r.isActive !== false
-                                                    ? "bg-blue-600 text-white"
-                                                    : "bg-gray-200 text-gray-700"
+                                            className={`px-2 py-1 text-xs font-medium rounded-full ${
+                                                r.isActive
+                                                    ? "bg-green-100 text-green-800"
+                                                    : "bg-red-100 text-red-800"
                                             }`}
                                         >
-                                            {r.isActive !== false ? "Yes" : "No"}
+                                            {r.isActive ? "Active" : "Inactive"}
                                         </span>
                                     </td>
                                     <td className="p-3">
@@ -297,7 +295,7 @@ export function SalesmenView({ provider }: { provider: DataProvider }) {
                             ))}
                             {rows.length === 0 && (
                                 <tr>
-                                    <td colSpan={6} className="p-6 text-center text-gray-500">
+                                    <td colSpan={5} className="p-6 text-center text-gray-500">
                                         No salesmen found.
                                     </td>
                                 </tr>

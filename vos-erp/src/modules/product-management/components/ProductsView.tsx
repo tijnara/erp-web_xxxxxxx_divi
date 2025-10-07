@@ -6,26 +6,25 @@ import type { DataProvider } from "../providers/DataProvider";
 import type { Product } from "../types";
 import { StatBar } from "./StatBar";
 import { ProductModal } from "./ProductModal";
+import { ProductView } from "./ProductView";
 
-function fmtDate(iso?: string | null) {
-    if (!iso) return null;
-    const d = new Date(iso);
-    if (Number.isNaN(d.getTime())) return null;
-    return d.toLocaleString();
-}
+const PAGE_SIZE = 20;
 
 export function ProductsView({ provider }: { provider: DataProvider }) {
     const [q, setQ] = useState("");
     const [rows, setRows] = useState<Product[]>([]);
     const [total, setTotal] = useState(0);
+    const [page, setPage] = useState(1);
 
     // modal state
     const [open, setOpen] = useState(false);
     const [editing, setEditing] = useState<Product | null>(null);
+    const [viewingId, setViewingId] = useState<number | null>(null);
 
     useEffect(() => {
         let alive = true;
-        provider.listProducts({ q, limit: 100 }).then(({ items, total }) => {
+        const offset = (page - 1) * PAGE_SIZE;
+        provider.listProducts({ q, limit: PAGE_SIZE, offset }).then(({ items, total }) => {
             if (!alive) return;
             setRows(items);
             setTotal(total);
@@ -33,7 +32,7 @@ export function ProductsView({ provider }: { provider: DataProvider }) {
         return () => {
             alive = false;
         };
-    }, [q, provider]);
+    }, [q, page, provider]);
 
     const stats = useMemo(() => {
         const active = rows.filter((r) => r.isActive !== false).length;
@@ -43,17 +42,22 @@ export function ProductsView({ provider }: { provider: DataProvider }) {
     }, [rows, total]);
 
     async function refresh() {
-        const { items, total } = await provider.listProducts({ q, limit: 100 });
+        const offset = (page - 1) * PAGE_SIZE;
+        const { items, total } = await provider.listProducts({ q, limit: PAGE_SIZE, offset });
         setRows(items);
         setTotal(total);
     }
+
+    const pageCount = useMemo(() => {
+        return Math.ceil(total / PAGE_SIZE);
+    }, [total]);
 
     return (
         <div className="space-y-4">
             <div className="flex justify-between items-center">
                 <h2 className="text-lg font-semibold">Products</h2>
                 <button
-                    className="px-3 py-2 rounded-lg bg-black text-white text-sm"
+                    className="px-3 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold"
                     onClick={() => {
                         setEditing(null); // add mode
                         setOpen(true);
@@ -73,114 +77,93 @@ export function ProductsView({ provider }: { provider: DataProvider }) {
             <div className="overflow-hidden border border-gray-200 rounded-xl">
                 <table className="w-full text-sm">
                     <thead className="bg-gray-50 text-gray-600">
-                    <tr>
-                        <th className="text-left p-3">Product</th>
-                        <th className="text-left p-3">Code/Barcode</th>
-                        <th className="text-left p-3">Unit</th>
-                        <th className="text-left p-3">Brand / Category</th>
-                        <th className="text-left p-3">Segment / Section</th>
-                        <th className="text-left p-3">Status</th>
-                        <th className="text-left p-3">Actions</th>
-                    </tr>
+                        <tr>
+                            <th className="text-left p-3 font-medium">Product Name</th>
+                            <th className="text-left p-3 font-medium">Product Code</th>
+                            <th className="text-left p-3 font-medium">Brand</th>
+                            <th className="text-left p-3 font-medium">Product Category</th>
+                            <th className="text-left p-3 font-medium">Status</th>
+                            <th className="text-left p-3 font-medium">Actions</th>
+                        </tr>
                     </thead>
                     <tbody>
-                    {rows.map((r) => (
-                        <tr key={r.id} className="border-t">
-                            <td className="p-3 align-top">
-                                <div className="font-medium">{r.name}</div>
-                                {r.description && <div className="text-gray-500">{r.description}</div>}
-                                {"last_updated" in (r as any) && (r as any).last_updated && (
-                                    <div className="text-xs text-gray-400">
-                                        Updated: {fmtDate((r as any).last_updated)}
+                        {rows.map((r) => (
+                            <tr
+                                key={r.id}
+                                className="border-b border-gray-200 hover:bg-gray-50 cursor-pointer"
+                                onClick={() => setViewingId(r.id)}
+                            >
+                                <td className="p-3">
+                                    <span className="text-blue-600 hover:underline">{r.name}</span>
+                                </td>
+                                <td className="p-3">{r.code}</td>
+                                <td className="p-3">
+                                    <span className="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">
+                                        {r.brand?.name}
+                                    </span>
+                                </td>
+                                <td className="p-3">{r.category?.name}</td>
+                                <td className="p-3">
+                                    <span
+                                        className={`px-2 py-1 text-xs font-medium rounded-full ${
+                                            r.isActive
+                                                ? "bg-green-100 text-green-800"
+                                                : "bg-red-100 text-red-800"
+                                        }`}
+                                    >
+                                        {r.isActive ? "Active" : "Inactive"}
+                                    </span>
+                                </td>
+                                <td className="p-3">
+                                    <div className="flex items-center space-x-2">
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setEditing(r);
+                                                setOpen(true);
+                                            }}
+                                        >
+                                            Edit
+                                        </button>
                                     </div>
-                                )}
-                                {r.weight_kg != null && (
-                                    <div className="text-xs text-gray-400">Weight: {r.weight_kg}kg</div>
-                                )}
-                            </td>
-
-                            <td className="p-3 align-top">
-                                <div className="text-gray-800">{r.code ?? "-"}</div>
-                                <div className="text-gray-400 text-xs">{r.barcode ?? ""}</div>
-                            </td>
-
-                            <td className="p-3 align-top">
-                                {r.unit ? (
-                                    <>
-                                        <div>{r.unit.name}</div>
-                                        {r.unit.shortcut && (
-                                            <div className="text-xs text-gray-500">{r.unit.shortcut}</div>
-                                        )}
-                                    </>
-                                ) : (
-                                    <span className="text-gray-400">—</span>
-                                )}
-                            </td>
-
-                            <td className="p-3 align-top">
-                                <div>{r.brand?.name ?? <span className="text-gray-400">—</span>}</div>
-                                <div className="text-xs text-gray-500">{r.category?.name ?? ""}</div>
-                            </td>
-
-                            <td className="p-3 align-top">
-                                <div>{r.segment?.name ?? <span className="text-gray-400">—</span>}</div>
-                                <div className="text-xs text-gray-500">{r.section?.name ?? ""}</div>
-                            </td>
-
-                            {/* Stock column removed */}
-
-                            <td className="p-3 align-top">
-                  <span
-                      className={`text-xs px-2 py-1 rounded-full ${
-                          r.isActive !== false
-                              ? "bg-blue-600 text-white"
-                              : "bg-gray-200 text-gray-700"
-                      }`}
-                  >
-                    {r.isActive !== false ? "Active" : "Inactive"}
-                  </span>
-                            </td>
-
-                            <td className="p-3 align-top">
-                                <div className="flex gap-2">
-                                    <button
-                                        className="text-xs px-2 py-1 rounded border"
-                                        onClick={() => {
-                                            setEditing(r); // edit mode
-                                            setOpen(true);
-                                        }}
-                                    >
-                                        Edit
-                                    </button>
-                                    <button
-                                        className="text-xs px-2 py-1 rounded border border-red-300 text-red-600"
-                                        onClick={async () => {
-                                            if (!confirm("Delete product?")) return;
-                                            await provider.deleteProduct(r.id);
-                                            await refresh();
-                                        }}
-                                    >
-                                        Delete
-                                    </button>
-                                </div>
-                            </td>
-                        </tr>
-                    ))}
-
-                    {rows.length === 0 && (
-                        <tr>
-                            <td colSpan={7} className="p-6 text-center text-gray-500">
-                                No products found.
-                            </td>
-                        </tr>
-                    )}
+                                </td>
+                            </tr>
+                        ))}
                     </tbody>
                 </table>
             </div>
 
+            <div className="flex justify-between items-center mt-4">
+                <div>
+                    <p className="text-sm text-muted-foreground">
+                        Showing {rows.length} of {total} items
+                    </p>
+                </div>
+                <div className="flex gap-2">
+                    <button
+                        onClick={() => setPage((p) => Math.max(1, p - 1))}
+                        disabled={page === 1}
+                        className="px-3 py-1 rounded-lg border text-sm font-semibold disabled:opacity-50"
+                    >
+                        Previous
+                    </button>
+                    <div className="flex items-center gap-2">
+                        <span className="text-sm">
+                            Page {page} of {pageCount}
+                        </span>
+                    </div>
+                    <button
+                        onClick={() => setPage((p) => Math.min(pageCount, p + 1))}
+                        disabled={page === pageCount}
+                        className="px-3 py-1 rounded-lg border text-sm font-semibold disabled:opacity-50"
+                    >
+                        Next
+                    </button>
+                </div>
+            </div>
+
             <StatBar stats={stats} />
 
-            {/* Add/Edit Modal */}
             <ProductModal
                 open={open}
                 onClose={() => setOpen(false)}
@@ -189,6 +172,12 @@ export function ProductsView({ provider }: { provider: DataProvider }) {
                 onSaved={async () => {
                     await refresh();
                 }}
+            />
+            <ProductView
+                provider={provider}
+                productId={viewingId}
+                open={viewingId !== null}
+                onClose={() => setViewingId(null)}
             />
         </div>
     );

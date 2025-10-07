@@ -21,8 +21,6 @@ export function CustomerView({ provider }: { provider: ReturnType<typeof import(
   const [discountTypes, setDiscountTypes] = useState<{ id: number; discount_type: string }[]>([]);
   const [users, setUsers] = useState<{ user_id: number; user_fname: string; user_lname: string }[]>([]);
 
-  const totalPages = useMemo(() => Math.ceil(total / limit), [total, limit]);
-
   async function refresh() {
     const offset = (page - 1) * limit;
     const { items, total } = await provider.listCustomers({ q, limit, offset });
@@ -50,7 +48,9 @@ export function CustomerView({ provider }: { provider: ReturnType<typeof import(
     return () => {
       alive = false;
     };
-  }, [q, page, provider]);
+  }, [q, page, provider, limit]);
+
+  const totalPages = useMemo(() => Math.ceil(total / limit), [total, limit]);
 
   const storeTypeMap = useMemo(() => {
     return storeTypes.reduce((acc, type) => {
@@ -86,7 +86,7 @@ export function CustomerView({ provider }: { provider: ReturnType<typeof import(
       <div className="flex justify-between items-center">
         <h2 className="text-lg font-semibold">Customers</h2>
         <button
-          className="px-3 py-2 rounded-lg bg-black text-white text-sm"
+          className="px-3 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold"
           onClick={() => {
             setMode("create");
             setCurrent(null);
@@ -99,7 +99,7 @@ export function CustomerView({ provider }: { provider: ReturnType<typeof import(
 
       {!selected && (
         <input
-          placeholder="Search by code, name, store, contact, city/province…"
+          placeholder="Search by name, shortcut, or contact person..."
           className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
           value={q}
           onChange={(e) => setQ(e.target.value)}
@@ -111,26 +111,37 @@ export function CustomerView({ provider }: { provider: ReturnType<typeof import(
           <table className="w-full text-sm">
             <thead className="bg-gray-50 text-gray-600">
               <tr>
-                <th className="text-left p-3">Code</th>
-                <th className="text-left p-3">Customer Name</th>
-                <th className="text-left p-3">Store</th>
-                <th className="text-left p-3">City/Province</th>
-                <th className="text-left p-3">Contact</th>
-                <th className="text-left p-3">Active</th>
-                <th className="text-left p-3">Actions</th>
+                <th className="text-left p-3 font-medium">Customer Name</th>
+                <th className="text-left p-3 font-medium">Customer Code</th>
+                <th className="text-left p-3 font-medium">Contact Info</th>
+                <th className="text-left p-3 font-medium">Type</th>
+                <th className="text-left p-3 font-medium">Status</th>
+                <th className="text-left p-3 font-medium">Actions</th>
               </tr>
             </thead>
             <tbody>
               {rows.map((r) => (
                 <tr key={r.id} className="border-t hover:bg-gray-50 cursor-pointer" onClick={() => setSelected(r)}>
-                  <td className="p-3">{r.customer_code}</td>
                   <td className="p-3">{r.customer_name}</td>
-                  <td className="p-3">{r.store_name}</td>
-                  <td className="p-3">{[r.city, r.province].filter(Boolean).join(", ") || "-"}</td>
-                  <td className="p-3">{r.contact_number ?? "-"}</td>
+                  <td className="p-3">{r.customer_code}</td>
                   <td className="p-3">
-                    <span className={`text-xs px-2 py-1 rounded-full ${(r.isActive ?? 0) === 1 ? "bg-blue-600 text-white" : "bg-gray-200 text-gray-700"}`}>
-                      {(r.isActive ?? 0) === 1 ? "Yes" : "No"}
+                    <div>{r.contact_number}</div>
+                    <div>{r.customer_email}</div>
+                  </td>
+                  <td className="p-3">
+                    <span className="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">
+                      {storeTypeMap[r.store_type]}
+                    </span>
+                  </td>
+                  <td className="p-3">
+                    <span
+                      className={`px-2 py-1 text-xs font-medium rounded-full ${
+                        r.isActive
+                          ? "bg-green-100 text-green-800"
+                          : "bg-red-100 text-red-800"
+                      }`}
+                    >
+                      {r.isActive ? "Active" : "Inactive"}
                     </span>
                   </td>
                   <td className="p-3">
@@ -152,7 +163,7 @@ export function CustomerView({ provider }: { provider: ReturnType<typeof import(
               ))}
               {rows.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="p-6 text-center text-gray-500">No customers found.</td>
+                  <td colSpan={6} className="p-6 text-center text-gray-500">No customers found.</td>
                 </tr>
               )}
             </tbody>

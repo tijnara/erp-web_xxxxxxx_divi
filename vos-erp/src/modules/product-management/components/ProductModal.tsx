@@ -6,6 +6,9 @@ import { Modal } from "@/components/ui/Modal";
 import { AsyncSelect } from "@/components/ui/AsyncSelect";
 import type { DataProvider } from "../providers/DataProvider";
 import type { Product, UpsertProductDTO } from "../types";
+import { BrandDropdown } from "./BrandDropdown";
+import { CategoryDropdown } from "./CategoryDropdown";
+import { useSession } from "@/hooks/use-session";
 
 export function ProductModal({
                                  open,
@@ -20,6 +23,7 @@ export function ProductModal({
     product?: Product | null;
     onSaved?: (saved: Product) => void;
 }) {
+    const { session } = useSession();
     const isEdit = !!product;
 
     const [name, setName] = useState("");
@@ -27,14 +31,14 @@ export function ProductModal({
     const [barcode, setBarcode] = useState<string | null>(null);
     const [description, setDescription] = useState<string | null>(null);
     const [weightKg, setWeightKg] = useState<number | null>(null);
+    const [maintainingQuantity, setMaintainingQuantity] = useState<number | null>(null);
+    const [basePrice, setBasePrice] = useState<number | null>(null);
     const [isActive, setIsActive] = useState(true);
 
     // selected relations (kept as id+name so UI shows text)
     const [unit, setUnit]         = useState<{ id: string | number; name: string } | null>(null);
     const [brand, setBrand]       = useState<{ id: string | number; name: string } | null>(null);
     const [category, setCategory] = useState<{ id: string | number; name: string } | null>(null);
-    const [segment, setSegment]   = useState<{ id: string | number; name: string } | null>(null);
-    const [section, setSection]   = useState<{ id: string | number; name: string } | null>(null);
 
     const [saving, setSaving] = useState(false);
     const [err, setErr] = useState<string | null>(null);
@@ -47,13 +51,13 @@ export function ProductModal({
         setBarcode(product?.barcode ?? null);
         setDescription(product?.description ?? null);
         setWeightKg(product?.weight_kg ?? null);
+        setMaintainingQuantity(product?.maintaining_quantity ?? null);
         setIsActive(product?.isActive !== false);
+        setBasePrice(product?.base_price ?? null);
 
         setUnit(product?.unit ? { id: product.unit.id, name: product.unit.name } : null);
         setBrand(product?.brand ? { id: product.brand.id, name: product.brand.name } : null);
         setCategory(product?.category ? { id: product.category.id, name: product.category.name } : null);
-        setSegment(product?.segment ? { id: product.segment.id, name: product.segment.name } : null);
-        setSection(product?.section ? { id: product.section.id, name: product.section.name } : null);
 
         setErr(null);
     }, [open, product]);
@@ -73,14 +77,16 @@ export function ProductModal({
             barcode: (barcode ?? "") || null,
             description: (description ?? "") || null,
             weight_kg: weightKg ?? null,
+            maintaining_quantity: maintainingQuantity,
+            base_price: basePrice,
             isActive,
+            created_at: new Date().toISOString(),
+            created_by: session?.user?.id ? Number(session.user.id) : undefined,
 
             // relation ids (optional)
             unitId: unit?.id ?? null,
             brandId: brand?.id ?? null,
             categoryId: category?.id ?? null,
-            segmentId: segment?.id ?? null,
-            sectionId: section?.id ?? null,
         };
 
         try {
@@ -140,6 +146,18 @@ export function ProductModal({
                     </div>
 
                     <div>
+                        <label className="text-sm">Price</label>
+                        <input
+                            type="number"
+                            step="0.01"
+                            className="mt-1 w-full rounded-md border px-3 py-2 bg-white dark:bg-zinc-900"
+                            value={basePrice ?? ""}
+                            onChange={(e) => setBasePrice(e.target.value === "" ? null : Number(e.target.value))}
+                            placeholder="e.g. 45.50"
+                        />
+                    </div>
+
+                    <div>
                         <label className="text-sm">Weight (kg)</label>
                         <input
                             type="number"
@@ -148,6 +166,17 @@ export function ProductModal({
                             value={weightKg ?? ""}
                             onChange={(e) => setWeightKg(e.target.value === "" ? null : Number(e.target.value))}
                             placeholder="e.g. 0.150"
+                        />
+                    </div>
+
+                    <div>
+                        <label className="text-sm">Maintaining Quantity</label>
+                        <input
+                            type="number"
+                            className="mt-1 w-full rounded-md border px-3 py-2 bg-white dark:bg-zinc-900"
+                            value={maintainingQuantity ?? ""}
+                            onChange={(e) => setMaintainingQuantity(e.target.value === "" ? null : Number(e.target.value))}
+                            placeholder="e.g. 10"
                         />
                     </div>
 
@@ -160,6 +189,17 @@ export function ProductModal({
                         />
                         <label htmlFor="isActive" className="text-sm">Active</label>
                     </div>
+
+                    {session?.user && (
+                        <div>
+                            <label className="text-sm">Created By</label>
+                            <input
+                                className="mt-1 w-full rounded-md border px-3 py-2 bg-zinc-100 dark:bg-zinc-800"
+                                value={session.user.name}
+                                readOnly
+                            />
+                        </div>
+                    )}
                 </div>
 
                 {/* Autocompletes */}
@@ -171,33 +211,13 @@ export function ProductModal({
                         initial={unit}
                         onChange={(o) => setUnit(o)}
                     />
-                    <AsyncSelect
-                        label="Brand"
-                        placeholder="Search brands…"
-                        fetchUrl="/api/lookup/brand"
-                        initial={brand}
+                    <BrandDropdown
+                        value={brand}
                         onChange={(o) => setBrand(o)}
                     />
-                    <AsyncSelect
-                        label="Category"
-                        placeholder="Search categories…"
-                        fetchUrl="/api/lookup/categories"
-                        initial={category}
+                    <CategoryDropdown
+                        value={category}
                         onChange={(o) => setCategory(o)}
-                    />
-                    <AsyncSelect
-                        label="Segment"
-                        placeholder="Search segments…"
-                        fetchUrl="/api/lookup/segment"
-                        initial={segment}
-                        onChange={(o) => setSegment(o)}
-                    />
-                    <AsyncSelect
-                        label="Section"
-                        placeholder="Search sections…"
-                        fetchUrl="/api/lookup/sections"
-                        initial={section}
-                        onChange={(o) => setSection(o)}
                     />
                 </div>
 

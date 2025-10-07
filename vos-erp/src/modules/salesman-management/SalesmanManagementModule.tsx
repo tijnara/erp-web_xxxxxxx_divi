@@ -11,7 +11,13 @@ export function SalesmanManagementModule() {
     const [tab, setTab] = useState<"salesmen">("salesmen");
 
     return (
-        <div className="mx-auto max-w-6xl">
+        <div className="space-y-4">
+            <div>
+                <h1 className="text-2xl font-bold">Salesman Management</h1>
+                <p className="text-base text-muted-foreground">
+                    Manage your salesman relationships and track performance
+                </p>
+            </div>
             <HeaderTabs tab={tab} onChange={setTab} />
             <div className="mt-4">
                 {tab === "salesmen" && <SalesmenView provider={provider} />}

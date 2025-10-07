@@ -32,9 +32,7 @@ export async function GET(req: Request) {
             `filter[_or][1][product_code][_icontains]=${encodeURIComponent(q)}`,
             `filter[_or][2][barcode][_icontains]=${encodeURIComponent(q)}`,
             `filter[_or][3][product_brand][brand_name][_icontains]=${encodeURIComponent(q)}`,
-            `filter[_or][4][product_category][category_name][_icontains]=${encodeURIComponent(q)}`,
-            `filter[_or][5][product_segment][segment_name][_icontains]=${encodeURIComponent(q)}`,
-            `filter[_or][6][product_section][section_name][_icontains]=${encodeURIComponent(q)}`
+            `filter[_or][4][product_category][category_name][_icontains]=${encodeURIComponent(q)}`
         );
     }
 

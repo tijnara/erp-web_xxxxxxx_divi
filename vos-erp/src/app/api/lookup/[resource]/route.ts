@@ -30,10 +30,11 @@ const MAP: Record<
     sections: {path: "sections", fields: "section_id,section_name", nameField: "section_name", idField: "section_id"}
 };
 
-export async function GET(req: Request, ctx: { params: { resource: string } }) {
+export async function GET(req: Request, context: { params: { resource: string } }) {
     if (!DIRECTUS) return NextResponse.json([], {status: 200});
 
-    const cfg = MAP[ctx.params.resource];
+    const { resource } = context.params;
+    const cfg = MAP[resource];
     if (!cfg) return NextResponse.json([], {status: 200});
 
     const url = new URL(req.url);

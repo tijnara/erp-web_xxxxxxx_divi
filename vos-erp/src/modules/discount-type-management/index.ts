@@ -1,0 +1,2 @@
+export { DiscountTypeManagementModule } from "./DiscountTypeManagementModule";
+

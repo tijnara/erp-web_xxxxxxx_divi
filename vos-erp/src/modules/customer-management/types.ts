@@ -26,6 +26,7 @@ export type Customer = {
   isVAT: number; // 0/1
   isEWT: number; // 0/1
   discount_type?: number | null; // FK -> discount_type.id
+  customer_classification?: number | null;
   otherDetails?: string | null;
   classification?: number | null;
   location?: any | null; // POINT

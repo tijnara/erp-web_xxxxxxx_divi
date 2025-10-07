@@ -4,7 +4,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useTheme } from "next-themes";
-import { Sun, MoonStar, Menu, ChevronsUpDown } from "lucide-react";
+import { Sun, MoonStar, Menu, ChevronsUpDown, User, LogOut } from "lucide-react";
 
 type MeResponse = {
     user: {
@@ -58,24 +58,24 @@ export function Topbar() {
     }
 
     return (
-        <header className="sticky top-0 z-40 border-b border-zinc-200 bg-white/80 px-4 py-3 backdrop-blur dark:border-zinc-800 dark:bg-zinc-950/80">
+        <header className="sticky top-0 z-40 border-b border-border bg-background/80 px-4 py-3 backdrop-blur">
             <div className="mx-auto max-w-7xl flex items-center justify-between gap-3">
                 {/* Left: mobile menu + title */}
                 <div className="flex items-center gap-2">
                     <button
-                        className="md:hidden rounded-md px-2 py-1 hover:bg-zinc-200 dark:hover:bg-zinc-800"
+                        className="md:hidden rounded-md px-2 py-1 hover:bg-accent"
                         onClick={toggleSidebar}
                         aria-label="Toggle navigation"
                     >
                         <Menu className="h-5 w-5" />
                     </button>
-                    <div className="font-medium">DIVI Appliances</div>
+                    <div className="font-medium">DV Appliance</div>
                 </div>
 
                 {/* Right: theme toggle + user dropdown */}
                 <div className="flex items-center gap-2 relative">
                     <button
-                        className="rounded-md px-2 py-1 hover:bg-zinc-200 dark:hover:bg-zinc-800"
+                        className="rounded-md px-2 py-1 hover:bg-accent"
                         onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
                         aria-label="Toggle theme"
                     >
@@ -85,10 +85,10 @@ export function Topbar() {
 
                     <button
                         onClick={() => setOpen((o) => !o)}
-                        className="flex items-center gap-2 rounded-md px-2 py-1 hover:bg-zinc-200 dark:hover:bg-zinc-800"
+                        className="flex items-center gap-2 rounded-md px-2 py-1 hover:bg-accent"
                         aria-label="Account menu"
                     >
-            <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-zinc-200 text-xs font-medium text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200">
+            <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-muted text-xs font-medium text-muted-foreground">
               {initials}
             </span>
                         <span className="hidden sm:block text-sm">{name || email}</span>
@@ -97,31 +97,25 @@ export function Topbar() {
 
                     {open && (
                         <div
-                            className="absolute right-0 top-10 w-56 rounded-lg border border-zinc-200 bg-white shadow-md dark:border-zinc-800 dark:bg-zinc-900 overflow-hidden"
+                            className="absolute right-0 top-10 w-56 rounded-lg border border-border bg-card shadow-md overflow-hidden"
                             onMouseLeave={() => setOpen(false)}
                         >
-                            <Link
-                                href="/account/profile"
-                                className="block px-3 py-2 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800"
-                            >
-                                Profile
-                            </Link>
-                            <Link
-                                href="/settings"
-                                className="block px-3 py-2 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800"
-                            >
-                                Settings
-                            </Link>
-                            <div className="my-1 border-t border-zinc-200 dark:border-zinc-800" />
-                            <button
-                                className="block w-full text-left px-3 py-2 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-800"
-                                onClick={async () => {
-                                    await fetch("/api/auth/logout", { method: "POST" });
-                                    location.href = "/login";
-                                }}
-                            >
-                                Logout
-                            </button>
+                            <div className="p-1">
+                                <Link
+                                    href="/account/profile"
+                                    className="flex items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-accent"
+                                >
+                                    <User className="h-4 w-4" />
+                                    Profile
+                                </Link>
+                                <Link
+                                    href="/logout"
+                                    className="flex items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-accent"
+                                >
+                                    <LogOut className="h-4 w-4" />
+                                    Logout
+                                </Link>
+                            </div>
                         </div>
                     )}
                 </div>

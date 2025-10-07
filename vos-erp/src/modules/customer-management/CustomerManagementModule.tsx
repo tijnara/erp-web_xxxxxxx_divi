@@ -9,11 +9,12 @@ export function CustomerManagementModule() {
   const provider = fetchProvider();
   const [tab] = useState<"customers">("customers");
   return (
-    <div className="mx-auto max-w-6xl">
-      <div className="border-b mb-4">
-        <div className="flex gap-4">
-          <button className="px-3 py-2 text-sm font-medium text-black border-b-2 border-black">Customers</button>
-        </div>
+    <div className="space-y-4">
+      <div>
+        <h1 className="text-2xl font-bold">Customer Management</h1>
+        <p className="text-base text-muted-foreground">
+          Manage your customer relationships and track performance
+        </p>
       </div>
       {tab === "customers" && <CustomerView provider={provider} />}
     </div>

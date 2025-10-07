@@ -4,6 +4,9 @@ import "./globals.css";
 export const metadata: Metadata = {
     title: "VOS ERP",
     description: "Internal ops platform",
+    icons: {
+        icon: "/vos.ico",
+    },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

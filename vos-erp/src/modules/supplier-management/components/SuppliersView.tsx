@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import type { DataProvider } from "../providers/DataProvider";
 import type { Supplier } from "../types";
 import { SupplierFormDialog } from "./SupplierFormDialog";
@@ -20,9 +20,6 @@ export function SuppliersView({ provider }: { provider: DataProvider }) {
     const [current, setCurrent] = useState<Supplier | null>(null);
     const [selected, setSelected] = useState<Supplier | null>(null);
     const [deliveryTerms, setDeliveryTerms] = useState<DeliveryTerm[]>([]);
-    const [supplierTypes, setSupplierTypes] = useState<SupplierType[]>([]);
-
-    const totalPages = useMemo(() => Math.ceil(total / limit), [total, limit]);
 
     async function refresh() {
         const offset = (page - 1) * limit;
@@ -49,14 +46,14 @@ export function SuppliersView({ provider }: { provider: DataProvider }) {
         return () => {
             alive = false;
         };
-    }, [q, page, provider]);
+    }, [q, page, provider, limit]);
 
     return (
         <div className="space-y-4">
             <div className="flex justify-between items-center">
                 <h2 className="text-lg font-semibold">Suppliers</h2>
                 <button
-                    className="px-3 py-2 rounded-lg bg-black text-white text-sm"
+                    className="px-3 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold"
                     onClick={() => {
                         setMode("create");
                         setCurrent(null);
@@ -69,7 +66,7 @@ export function SuppliersView({ provider }: { provider: DataProvider }) {
 
             {!selected && (
                 <input
-                    placeholder="Search by name or shortcut..."
+                    placeholder="Search by name, shortcut, or contact person..."
                     className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm"
                     value={q}
                     onChange={(e) => setQ(e.target.value)}
@@ -81,12 +78,13 @@ export function SuppliersView({ provider }: { provider: DataProvider }) {
                     <table className="w-full text-sm">
                         <thead className="bg-gray-50 text-gray-600">
                             <tr>
-                                <th className="text-left p-3">Name</th>
-                                <th className="text-left p-3">Shortcut</th>
-                                <th className="text-left p-3">Contact Person</th>
-                                <th className="text-left p-3">Supplier Type</th>
-                                <th className="text-left p-3">Active</th>
-                                <th className="text-left p-3">Actions</th>
+                                <th className="text-left p-3 font-medium">Supplier Name</th>
+                                <th className="text-left p-3 font-medium">Shortcut</th>
+                                <th className="text-left p-3 font-medium">Contact Person</th>
+                                <th className="text-left p-3 font-medium">Contact Info</th>
+                                <th className="text-left p-3 font-medium">Type</th>
+                                <th className="text-left p-3 font-medium">Status</th>
+                                <th className="text-left p-3 font-medium">Actions</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -99,8 +97,26 @@ export function SuppliersView({ provider }: { provider: DataProvider }) {
                                     <td className="p-3">{r.supplier_name}</td>
                                     <td className="p-3">{r.supplier_shortcut}</td>
                                     <td className="p-3">{r.contact_person}</td>
-                                    <td className="p-3">{r.supplier_type ?? 'N/A'}</td>
-                                    <td className="p-3">{r.isActive ? "Yes" : "No"}</td>
+                                    <td className="p-3">
+                                        <div>{r.phone_number}</div>
+                                        <div>{r.email_address}</div>
+                                    </td>
+                                    <td className="p-3">
+                                        <span className="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">
+                                            {r.supplier_type}
+                                        </span>
+                                    </td>
+                                    <td className="p-3">
+                                        <span
+                                            className={`px-2 py-1 text-xs font-medium rounded-full ${
+                                                r.isActive
+                                                    ? "bg-green-100 text-green-800"
+                                                    : "bg-red-100 text-red-800"
+                                            }`}
+                                        >
+                                            {r.isActive ? "Active" : "Inactive"}
+                                        </span>
+                                    </td>
                                     <td className="p-3">
                                         <button
                                             className="px-2 py-1 rounded-lg border text-xs"
@@ -127,20 +143,20 @@ export function SuppliersView({ provider }: { provider: DataProvider }) {
                     </table>
                     <div className="flex justify-between items-center p-3 border-t">
                         <div className="text-sm text-gray-500">
-                            Page {page} of {totalPages} ({total} items)
+                            Page {page} of {Math.ceil(total / limit)} ({total} items)
                         </div>
                         <div className="flex gap-2">
                             <button
                                 className="text-sm px-3 py-1 rounded border disabled:opacity-50"
                                 disabled={page <= 1}
-                                onClick={() => setPage(p => p - 1)}
+                                onClick={() => setPage((p) => p - 1)}
                             >
                                 Previous
                             </button>
                             <button
                                 className="text-sm px-3 py-1 rounded border disabled:opacity-50"
-                                disabled={page >= totalPages}
-                                onClick={() => setPage(p => p + 1)}
+                                disabled={page >= Math.ceil(total / limit)}
+                                onClick={() => setPage((p) => p + 1)}
                             >
                                 Next
                             </button>
@@ -172,18 +188,57 @@ export function SuppliersView({ provider }: { provider: DataProvider }) {
                     </div>
                     <table className="w-full text-sm">
                         <tbody>
-                            <tr className="border-t"><td className="p-3 font-medium text-gray-600">Supplier Name</td><td className="p-3">{selected.supplier_name}</td></tr>
-                            <tr className="border-t"><td className="p-3 font-medium text-gray-600">Supplier Shortcut</td><td className="p-3">{selected.supplier_shortcut}</td></tr>
-                            <tr className="border-t"><td className="p-3 font-medium text-gray-600">Contact Person</td><td className="p-3">{selected.contact_person ?? "-"}</td></tr>
-                            <tr className="border-t"><td className="p-3 font-medium text-gray-600">Email</td><td className="p-3">{selected.email_address ?? "-"}</td></tr>
-                            <tr className="border-t"><td className="p-3 font-medium text-gray-600">Phone</td><td className="p-3">{selected.phone_number ?? "-"}</td></tr>
-                            <tr className="border-t"><td className="p-3 font-medium text-gray-600">Address</td><td className="p-3">{selected.address}</td></tr>
-                            <tr className="border-t"><td className="p-3 font-medium text-gray-600">Supplier Type</td><td className="p-3">{selected.supplier_type ?? "-"}</td></tr>
-                            <tr className="border-t"><td className="p-3 font-medium text-gray-600">TIN</td><td className="p-3">{selected.tin_number ?? "-"}</td></tr>
-                            <tr className="border-t"><td className="p-3 font-medium text-gray-600">Payment Terms</td><td className="p-3">{selected.payment_terms ?? "-"}</td></tr>
-                            <tr className="border-t"><td className="p-3 font-medium text-gray-600">Delivery Terms</td><td className="p-3">{deliveryTerms.find(d => d.id === selected.delivery_terms)?.delivery_name ?? selected.delivery_terms ?? "-"}</td></tr>
-                            <tr className="border-t"><td className="p-3 font-medium text-gray-600">Date Added</td><td className="p-3">{selected.date_added}</td></tr>
-                            <tr className="border-t"><td className="p-3 font-medium text-gray-600">Is Active</td><td className="p-3">{selected.isActive ? "Yes" : "No"}</td></tr>
+                            <tr className="border-t">
+                                <td className="p-3 font-medium text-gray-600">Supplier Name</td>
+                                <td className="p-3">{selected.supplier_name}</td>
+                            </tr>
+                            <tr className="border-t">
+                                <td className="p-3 font-medium text-gray-600">Supplier Shortcut</td>
+                                <td className="p-3">{selected.supplier_shortcut}</td>
+                            </tr>
+                            <tr className="border-t">
+                                <td className="p-3 font-medium text-gray-600">Contact Person</td>
+                                <td className="p-3">{selected.contact_person ?? "-"}</td>
+                            </tr>
+                            <tr className="border-t">
+                                <td className="p-3 font-medium text-gray-600">Email</td>
+                                <td className="p-3">{selected.email_address ?? "-"}</td>
+                            </tr>
+                            <tr className="border-t">
+                                <td className="p-3 font-medium text-gray-600">Phone</td>
+                                <td className="p-3">{selected.phone_number ?? "-"}</td>
+                            </tr>
+                            <tr className="border-t">
+                                <td className="p-3 font-medium text-gray-600">Address</td>
+                                <td className="p-3">{selected.address}</td>
+                            </tr>
+                            <tr className="border-t">
+                                <td className="p-3 font-medium text-gray-600">Supplier Type</td>
+                                <td className="p-3">{selected.supplier_type ?? "-"}</td>
+                            </tr>
+                            <tr className="border-t">
+                                <td className="p-3 font-medium text-gray-600">TIN</td>
+                                <td className="p-3">{selected.tin_number ?? "-"}</td>
+                            </tr>
+                            <tr className="border-t">
+                                <td className="p-3 font-medium text-gray-600">Payment Terms</td>
+                                <td className="p-3">{selected.payment_terms ?? "-"}</td>
+                            </tr>
+                            <tr className="border-t">
+                                <td className="p-3 font-medium text-gray-600">Delivery Terms</td>
+                                <td className="p-3">
+                                    {deliveryTerms.find((d) => d.id === selected.delivery_terms)?.delivery_name ??
+                                        selected.delivery_terms ?? "-"}
+                                </td>
+                            </tr>
+                            <tr className="border-t">
+                                <td className="p-3 font-medium text-gray-600">Date Added</td>
+                                <td className="p-3">{selected.date_added}</td>
+                            </tr>
+                            <tr className="border-t">
+                                <td className="p-3 font-medium text-gray-600">Is Active</td>
+                                <td className="p-3">{selected.isActive ? "Yes" : "No"}</td>
+                            </tr>
                         </tbody>
                     </table>
                 </div>

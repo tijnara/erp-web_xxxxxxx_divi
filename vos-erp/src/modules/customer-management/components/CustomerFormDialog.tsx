@@ -39,6 +39,7 @@ export function CustomerFormDialog({
   const [customer_email, setEmail] = useState("");
   const [store_type, setStoreType] = useState<number>(0);
   const [discount_type, setDiscountType] = useState<number | null>(null);
+  const [customer_classification, setCustomerClassification] = useState<number | null>(null);
   const [isActive, setIsActive] = useState<number>(1);
   const [isVAT, setIsVAT] = useState<number>(0);
   const [isEWT, setIsEWT] = useState<number>(0);
@@ -47,6 +48,7 @@ export function CustomerFormDialog({
 
   const [storeTypes, setStoreTypes] = useState<{ id: number; store_type: string }[]>([]);
   const [discountTypes, setDiscountTypes] = useState<{ id: number; discount_type: string }[]>([]);
+  const [customerClassifications, setCustomerClassifications] = useState<{ id: number; classification_name: string }[]>([]);
 
   // Local geographic datasets
   const [provinces, setProvinces] = useState<Province[]>([]);
@@ -145,6 +147,7 @@ export function CustomerFormDialog({
     setEmail(initial?.customer_email ?? "");
     setStoreType(initial?.store_type ?? 0);
     setDiscountType(initial?.discount_type ?? null);
+    setCustomerClassification(initial?.customer_classification ?? null);
     setIsActive(initial?.isActive ?? 1);
     setIsVAT(initial?.isVAT ?? 0);
     setIsEWT(initial?.isEWT ?? 0);
@@ -179,6 +182,10 @@ export function CustomerFormDialog({
       .then((r) => r.json())
       .then((j) => setDiscountTypes(j.data || []))
       .catch(() => setDiscountTypes([]));
+    fetch("http://100.119.3.44:8090/items/customer_classification", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((j) => setCustomerClassifications(j.data || []))
+      .catch(() => setCustomerClassifications([]));
 
     // Lazy-load local geographic JSONs only when dialog is open
     (async () => {
@@ -247,6 +254,7 @@ export function CustomerFormDialog({
       customer_email: customer_email || undefined,
       store_type: store_type || undefined,
       discount_type: discount_type ?? undefined,
+      customer_classification: customer_classification ?? undefined,
       isActive,
       isVAT,
       isEWT,
@@ -362,6 +370,15 @@ export function CustomerFormDialog({
               <option value={0}>Select discount</option>
               {discountTypes.map((t)=> (
                 <option key={t.id} value={t.id}>{t.discount_type}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs text-gray-600 mb-1">Customer Classification</label>
+            <select className="w-full rounded-lg border border-gray-200 px-3 py-2" value={customer_classification ?? 0} onChange={(e)=>setCustomerClassification(Number(e.target.value) || null)}>
+              <option value={0}>Select classification</option>
+              {customerClassifications.map((c)=> (
+                <option key={c.id} value={c.id}>{c.classification_name}</option>
               ))}
             </select>
           </div>

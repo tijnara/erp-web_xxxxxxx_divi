@@ -56,7 +56,7 @@ export function UsersView({ provider }: { provider: DataProvider }) {
             <div className="flex justify-between items-center">
                 <h2 className="text-lg font-semibold">Users</h2>
                 <button
-                    className="px-3 py-2 rounded-lg bg-black text-white text-sm"
+                    className="px-3 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold"
                     onClick={() => {
                         setMode("create");
                         setCurrent(null);
@@ -81,38 +81,46 @@ export function UsersView({ provider }: { provider: DataProvider }) {
                     <table className="w-full text-sm">
                         <thead className="bg-gray-50 text-gray-600">
                             <tr>
-                                <th className="text-left p-3">Name</th>
-                                <th className="text-left p-3">Email</th>
-                                <th className="text-left p-3">Position</th>
-                                <th className="text-left p-3">Admin</th>
-                                <th className="text-left p-3">Actions</th>
+                                <th className="text-left p-3 font-medium">User Name</th>
+                                <th className="text-left p-3 font-medium">Email Address</th>
+                                <th className="text-left p-3 font-medium">Contact Info</th>
+                                <th className="text-left p-3 font-medium">Position</th>
+                                <th className="text-left p-3 font-medium">Status</th>
+                                <th className="text-left p-3 font-medium">Actions</th>
                             </tr>
                         </thead>
                         <tbody>
                             {rows.map((r) => (
                                 <tr
                                     key={r.user_id}
-                                    className="border-t hover:bg-gray-50 cursor-pointer"
+                                    className="border-b border-gray-200 hover:bg-gray-50 cursor-pointer"
                                     onClick={() => setSelected(r)}
                                 >
                                     <td className="p-3">{displayFullName(r)}</td>
                                     <td className="p-3">{r.user_email}</td>
-                                    <td className="p-3">{r.user_position ?? "-"}</td>
                                     <td className="p-3">
-                                        <span
-                                            className={`text-xs px-2 py-1 rounded-full ${
-                                                r.isAdmin
-                                                    ? "bg-blue-600 text-white"
-                                                    : "bg-gray-200 text-gray-700"
-                                            }`}
-                                        >
-                                            {r.isAdmin ? "Yes" : "No"}
+                                        <div>{r.user_contact}</div>
+                                        <div>{r.user_email}</div>
+                                    </td>
+                                    <td className="p-3">
+                                        <span className="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">
+                                            {r.user_position}
                                         </span>
                                     </td>
                                     <td className="p-3">
-                                        <div className="flex gap-2">
+                                        <span
+                                            className={`px-2 py-1 text-xs font-medium rounded-full ${
+                                                !r.isDeleted
+                                                    ? "bg-green-100 text-green-800"
+                                                    : "bg-red-100 text-red-800"
+                                            }`}
+                                        >
+                                            {!r.isDeleted ? "Active" : "Inactive"}
+                                        </span>
+                                    </td>
+                                    <td className="p-3">
+                                        <div className="flex items-center space-x-2">
                                             <button
-                                                className="text-xs px-2 py-1 rounded border"
                                                 onClick={(e) => {
                                                     e.stopPropagation();
                                                     setMode("edit");
@@ -126,13 +134,6 @@ export function UsersView({ provider }: { provider: DataProvider }) {
                                     </td>
                                 </tr>
                             ))}
-                            {rows.length === 0 && (
-                                <tr>
-                                    <td colSpan={5} className="p-6 text-center text-gray-500">
-                                        No users found.
-                                    </td>
-                                </tr>
-                            )}
                         </tbody>
                     </table>
                     <div className="flex justify-between items-center p-3 border-t">
@@ -143,14 +144,14 @@ export function UsersView({ provider }: { provider: DataProvider }) {
                             <button
                                 className="text-sm px-3 py-1 rounded border disabled:opacity-50"
                                 disabled={page <= 1}
-                                onClick={() => setPage(p => p - 1)}
+                                onClick={() => setPage((p) => p - 1)}
                             >
                                 Previous
                             </button>
                             <button
                                 className="text-sm px-3 py-1 rounded border disabled:opacity-50"
                                 disabled={page >= totalPages}
-                                onClick={() => setPage(p => p + 1)}
+                                onClick={() => setPage((p) => p + 1)}
                             >
                                 Next
                             </button>

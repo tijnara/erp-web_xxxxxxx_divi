@@ -38,11 +38,11 @@ export const demoMemoryProvider = (): DataProvider => {
     ];
 
     let prices: ProductPrice[] = [
-        { productId: 1, priceTypeId: 1, value: 2.5 },
-        { productId: 1, priceTypeId: 2, value: 2.0 },
-        { productId: 1, priceTypeId: 3, value: 2.25 },
-        { productId: 2, priceTypeId: 1, value: 3.5 },
-        { productId: 2, priceTypeId: 2, value: 3.0 },
+        { id: 1, productId: 1, priceTypeId: 1, value: 2.5 },
+        { id: 2, productId: 1, priceTypeId: 2, value: 2.0 },
+        { id: 3, productId: 1, priceTypeId: 3, value: 2.25 },
+        { id: 4, productId: 2, priceTypeId: 1, value: 3.5 },
+        { id: 5, productId: 2, priceTypeId: 2, value: 3.0 },
     ];
 
     const nextId = () => Math.max(0, ...products.map((p) => Number(p.id))) + 1;
@@ -125,7 +125,7 @@ export const demoMemoryProvider = (): DataProvider => {
                 prices[i] = { ...prices[i], value };
                 return prices[i];
             }
-            const row = { productId, priceTypeId, value };
+            const row = { id: Math.random(), productId, priceTypeId, value };
             prices.push(row);
             return row;
         },

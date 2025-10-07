@@ -80,6 +80,7 @@ async function http<T = any>(input: string, init?: RequestInit): Promise<T> {
     ...init,
     headers: {
       "Content-Type": "application/json",
+      'Authorization': 'Bearer hTovVgKHSA-XqQFinWFQn6dOu9MFTMs2',
       ...(init?.headers || {}),
     },
     cache: "no-store",

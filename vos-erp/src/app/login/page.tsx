@@ -4,7 +4,7 @@
 import { useMemo, useRef, useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 
-const ALLOWED_PREFIXES = ['/dashboard', '/admin', '/operation', '/hr', '/reports'];
+const ALLOWED_PREFIXES = ['/dashboard', '/admin', '/operation', '/hr', '/reports', '/admin/product'];
 function safeNextPath(input: string | null) {
     if (!input) return '/dashboard';
     try {
@@ -27,7 +27,6 @@ export default function LoginPage() {
     const [rf, setRf] = useState('');
     const [err, setErr] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
-    const [debug, setDebug] = useState<any>(null);
 
     const rfidInputRef = useRef<HTMLInputElement>(null);
 
@@ -39,33 +38,23 @@ export default function LoginPage() {
 
     async function loginPassword(e: React.FormEvent) {
         e.preventDefault();
-        setErr(null); setLoading(true); setDebug(null);
+        setErr(null); setLoading(true);
         try {
-            const res = await fetch('http://100.119.3.44:8090/items/user');
-            const json = await res.json();
-            setDebug({ fetchStatus: res.status, usersCount: (json.data || []).length });
-            const users = json.data || [];
-            const user = users.find(
-                (u: any) =>
-                    u.user_email === email &&
-                    u.user_password === password &&
-                    u.isAdmin === 1
-            );
-            setDebug((d: any) => ({ ...d, matchedUser: user ? { id: user.user_id, email: user.user_email, isAdmin: user.isAdmin } : null }));
+            const res = await fetch('/api/auth/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, password }),
+            });
             setLoading(false);
-            if (!user) {
-                setErr('Invalid credentials or not an admin.');
+            if (!res.ok) {
+                const j = await res.json().catch(()=> ({}));
+                setErr(j?.error || 'Login failed');
                 return;
             }
-            // Set a cookie for the middleware and store user info
-            document.cookie = "vos_app_access=true; path=/; max-age=86400"; // Expires in 1 day
-            localStorage.setItem('user', JSON.stringify(user));
-            setDebug((d: any) => ({ ...d, redirecting: true, cookieSet: true }));
             router.replace(nextPath);
         } catch (err) {
             setLoading(false);
             setErr('Login failed. Please try again.');
-            setDebug((d: any) => ({ ...d, error: String(err) }));
         }
     }
 
@@ -87,16 +76,16 @@ export default function LoginPage() {
 
     return (
         <main className="min-h-screen flex items-center justify-center p-6">
-            <div className="w-full max-w-sm border rounded-2xl p-6 bg-white dark:bg-zinc-950">
+            <div className="w-full max-w-sm border border-border rounded-2xl p-6 bg-card text-card-foreground">
                 <h1 className="text-xl font-semibold mb-3">Sign in</h1>
 
-                <div className="mb-4 flex rounded-lg overflow-hidden border dark:border-zinc-800">
+                <div className="mb-4 flex rounded-lg overflow-hidden border border-border">
                     <button
-                        className={`flex-1 px-3 py-2 text-sm ${tab==='password'?'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900':''}`}
+                        className={`flex-1 px-3 py-2 text-sm ${tab==='password'?'bg-primary text-primary-foreground':''}`}
                         onClick={()=>setTab('password')}
                     >Email & Password</button>
                     <button
-                        className={`flex-1 px-3 py-2 text-sm ${tab==='rfid'?'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900':''}`}
+                        className={`flex-1 px-3 py-2 text-sm ${tab==='rfid'?'bg-primary text-primary-foreground':''}`}
                         onClick={()=>setTab('rfid')}
                     >RFID</button>
                 </div>
@@ -116,7 +105,6 @@ export default function LoginPage() {
                                    className="border rounded px-3 py-2 w-full bg-white dark:bg-zinc-900"/>
                         </div>
                         {err && <div className="text-red-600 text-sm">{err}</div>}
-                        {debug && <pre className="text-xs text-zinc-500 bg-zinc-100 p-2 rounded mt-2 overflow-x-auto">{JSON.stringify(debug, null, 2)}</pre>}
                         <button disabled={loading} className="w-full rounded px-3 py-2 border bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 disabled:opacity-60">
                             {loading ? 'Signing in…' : 'Login'}
                         </button>

@@ -22,6 +22,7 @@ export type Supplier = {
   date_added: string;
   supplier_image: string;
   isActive: number;
+  specialty: string;
   nonBuy: {
     type: "Buffer";
     data: number[];

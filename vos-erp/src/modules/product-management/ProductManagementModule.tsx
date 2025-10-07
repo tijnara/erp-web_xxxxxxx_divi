@@ -24,7 +24,12 @@ export function ProductManagementModule() {
     }, [provider]);
 
     return (
-        <div className="mx-auto max-w-6xl">
+        <div className="space-y-4">
+            <div>
+                <h1 className="text-2xl font-bold">Product Management</h1>
+                <p className="text-base text-muted-foreground">
+                </p>
+            </div>
             <HeaderTabs tab={tab} onChange={setTab} />
             <div className="mt-4">
                 {tab === "products" && <ProductsView provider={provider} />}

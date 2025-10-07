@@ -4,6 +4,7 @@ export const runtime = 'nodejs';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { SignJWT } from 'jose';
+import { randomUUID } from 'crypto';
 
 const DIRECTUS = (process.env.NEXT_PUBLIC_DIRECTUS_URL ?? '').replace(/\/+$/,'');
 const M_EMAIL = process.env.DIRECTUS_MACHINE_EMAIL;
@@ -94,23 +95,35 @@ export async function POST(req: Request) {
     }
 
     // 4) mint app-session cookies (JWT), consistent with RFID route
+    const sessionId = randomUUID();
     const name = [u.user_fname, u.user_lname].filter(Boolean).join(' ') || u.user_email || '';
     const payload = {
       sub: String(u.user_id),
-      email: u.user_email ?? p.data.email,
-      name,
-      isAdmin: !!u.isAdmin,
-      role_id: u.role_id ?? null,
-      auth_kind: 'password' as const,
+      id: u.user_id, // for convenience
+      email: u.user_email,
+      first_name: u.user_fname,
+      last_name: u.user_lname,
+      name, // for display
+      isAdmin: bitAsBool(u.isAdmin),
+      jti: sessionId,
     };
 
-    const access  = await sign(payload, 60 * 15);       // 15m
+    const access = await sign(payload, 60 * 15); // 15m
     const refresh = await sign(payload, 60 * 60 * 24);  // 1d
 
     const isProd = process.env.NODE_ENV === 'production';
     const res = NextResponse.json({ ok: true, user: payload });
     res.cookies.set(APP_ACCESS,  access,  { httpOnly: true, sameSite: 'lax', secure: isProd, path: '/', maxAge: 60 * 15 });
     res.cookies.set(APP_REFRESH, refresh, { httpOnly: true, sameSite: 'lax', secure: isProd, path: '/', maxAge: 60 * 60 * 24 });
+
+    if (token) {
+      fetch(`${DIRECTUS}/items/user/${u.user_id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ session_token: sessionId }),
+      }).catch(e => console.error('SESSION_UPDATE_FAIL', e));
+    }
+
     return res;
   } catch (e: any) {
     console.error('PASSWORD_LOGIN_ERROR:', e);
