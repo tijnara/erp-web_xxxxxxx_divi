@@ -1,51 +1,22 @@
 // src/components/shell/topbar.tsx
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useTheme } from "next-themes";
 import { Sun, MoonStar, Menu, ChevronsUpDown, User, LogOut } from "lucide-react";
-
-type MeResponse = {
-    user: {
-        directus?: { email?: string; first_name?: string; last_name?: string } | null;
-        profile?: { user_email?: string; user_fname?: string; user_lname?: string } | null;
-    } | null;
-};
+import { useSession } from "@/hooks/use-session";
 
 export function Topbar() {
     const { theme, setTheme } = useTheme();
-    const [me, setMe] = useState<MeResponse["user"]>(null);
+    const { session } = useSession();
     const [open, setOpen] = useState(false);
 
-    useEffect(() => {
-        let mounted = true;
-        (async () => {
-            try {
-                const res = await fetch("http://100.119.3.44:8090/users/me", {
-                    cache: "no-store",
-                    headers: {
-                        'Authorization': 'Bearer hTovVgKHSA-XqQFinWFQn6dOu9MFTMs2'
-                    }
-                });
-                const json: MeResponse = await res.json();
-                if (mounted) setMe(json?.user ?? null);
-            } catch {
-                // ignore
-            }
-        })();
-        return () => { mounted = false; };
-    }, []);
+    const user = session?.user;
 
-    const email =
-        me?.directus?.email ||
-        me?.profile?.user_email ||
-        "Account";
+    const email = user?.email || "Account";
 
-    const name =
-        [me?.directus?.first_name || me?.profile?.user_fname, me?.directus?.last_name || me?.profile?.user_lname]
-            .filter(Boolean)
-            .join(" ");
+    const name = user?.name || [user?.first_name, user?.last_name].filter(Boolean).join(" ");
 
     const initials = useMemo(() => {
         const base = name || email;
@@ -102,7 +73,7 @@ export function Topbar() {
                         >
                             <div className="p-1">
                                 <Link
-                                    href="/account/profile"
+                                    href="/profile"
                                     className="flex items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-accent"
                                 >
                                     <User className="h-4 w-4" />

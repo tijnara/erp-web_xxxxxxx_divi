@@ -5,6 +5,9 @@ import { useEffect, useMemo, useState } from "react";
 import type { Customer } from "../types";
 import { StatBar } from "./StatBar";
 import { CustomerFormDialog } from "./CustomerFormDialog";
+import { CustomerDiscountPerProduct } from "./CustomerDiscountPerProduct";
+import { CustomerDiscountPerBrand } from "./CustomerDiscountPerBrand";
+import { CustomerDiscountPerCategory } from "./CustomerDiscountPerCategory";
 
 export function CustomerView({ provider }: { provider: ReturnType<typeof import("../providers/fetchProvider").fetchProvider> }) {
   const [q, setQ] = useState("");
@@ -17,6 +20,7 @@ export function CustomerView({ provider }: { provider: ReturnType<typeof import(
   const [mode, setMode] = useState<"create" | "edit">("create");
   const [current, setCurrent] = useState<Customer | null>(null);
   const [selected, setSelected] = useState<Customer | null>(null);
+  const [detailsTab, setDetailsTab] = useState<"details" | "discounts" | "brand-discounts" | "category-discounts">("details");
   const [storeTypes, setStoreTypes] = useState<{ id: number; store_type: string }[]>([]);
   const [discountTypes, setDiscountTypes] = useState<{ id: number; discount_type: string }[]>([]);
   const [users, setUsers] = useState<{ user_id: number; user_fname: string; user_lname: string }[]>([]);
@@ -191,9 +195,9 @@ export function CustomerView({ provider }: { provider: ReturnType<typeof import(
           </div>
         </div>
       ) : (
-        <div className="overflow-hidden border border-gray-200 rounded-xl">
-          <div className="flex items-center justify-between p-3 bg-gray-50 border-b">
-            <div className="font-medium">Customer Details</div>
+        <div>
+          <div className="flex items-center justify-between p-3 bg-gray-50 border-b border-gray-200 rounded-t-xl">
+            <div className="font-medium">{selected.customer_name}</div>
             <div className="flex gap-2">
               <button className="text-xs px-2 py-1 rounded border" onClick={() => setSelected(null)}>Back to list</button>
               <button
@@ -208,24 +212,75 @@ export function CustomerView({ provider }: { provider: ReturnType<typeof import(
               </button>
             </div>
           </div>
-          <table className="w-full text-sm">
-            <tbody>
-              <tr className="border-t"><td className="p-3 font-medium text-gray-600">Code</td><td className="p-3">{selected.customer_code}</td></tr>
-              <tr className="border-t"><td className="p-3 font-medium text-gray-600">Name</td><td className="p-3">{selected.customer_name}</td></tr>
-              <tr className="border-t"><td className="p-3 font-medium text-gray-600">Store</td><td className="p-3">{selected.store_name} ({selected.store_signage})</td></tr>
-              <tr className="border-t"><td className="p-3 font-medium text-gray-600">Address</td><td className="p-3">{[selected.brgy, selected.city, selected.province].filter(Boolean).join(", ") || "-"}</td></tr>
-              <tr className="border-t"><td className="p-3 font-medium text-gray-600">Contact</td><td className="p-3">{selected.contact_number ?? "-"}</td></tr>
-              <tr className="border-t"><td className="p-3 font-medium text-gray-600">Email</td><td className="p-3">{selected.customer_email ?? "-"}</td></tr>
-              <tr className="border-t"><td className="p-3 font-medium text-gray-600">Store Type</td><td className="p-3">{storeTypeMap[selected.store_type] ?? selected.store_type ?? "-"}</td></tr>
-              <tr className="border-t"><td className="p-3 font-medium text-gray-600">Discount Type</td><td className="p-3">{selected.discount_type ? discountTypeMap[selected.discount_type] ?? selected.discount_type : "-"}</td></tr>
-              <tr className="border-t"><td className="p-3 font-medium text-gray-600">Encoder</td><td className="p-3">{userMap[selected.encoder_id] ?? selected.encoder_id ?? "-"}</td></tr>
-              <tr className="border-t"><td className="p-3 font-medium text-gray-600">Active</td><td className="p-3">{(selected.isActive ?? 0) === 1 ? "Yes" : "No"}</td></tr>
-            </tbody>
-          </table>
+          <div className="border-b border-gray-200">
+            <div className="flex border-b">
+              <button
+                className={`px-4 py-2 text-sm font-medium ${detailsTab === "details" ? "border-b-2 border-primary text-primary" : "text-gray-500"}`}
+                onClick={() => setDetailsTab("details")}
+              >
+                Customer Details
+              </button>
+              <button
+                className={`px-4 py-2 text-sm font-medium ${detailsTab === "discounts" ? "border-b-2 border-primary text-primary" : "text-gray-500"}`}
+                onClick={() => setDetailsTab("discounts")}
+              >
+                Customer Discount per Product
+              </button>
+              <button
+                className={`px-4 py-2 text-sm font-medium ${detailsTab === "brand-discounts" ? "border-b-2 border-primary text-primary" : "text-gray-500"}`}
+                onClick={() => setDetailsTab("brand-discounts")}
+              >
+                Customer Discount per Brand
+              </button>
+              <button
+                className={`px-4 py-2 text-sm font-medium ${detailsTab === "category-discounts" ? "border-b-2 border-primary text-primary" : "text-gray-500"}`}
+                onClick={() => setDetailsTab("category-discounts")}
+              >
+                Customer Discount per Category
+              </button>
+            </div>
+          </div>
+
+          {detailsTab === "details" && (
+            <>
+              <div className="overflow-hidden border border-t-0 border-gray-200 rounded-b-xl">
+                <table className="w-full text-sm">
+                  <tbody>
+                    <tr className="border-t"><td className="p-3 font-medium text-gray-600">Code</td><td className="p-3">{selected.customer_code}</td></tr>
+                    <tr className="border-t"><td className="p-3 font-medium text-gray-600">Name</td><td className="p-3">{selected.customer_name}</td></tr>
+                    <tr className="border-t"><td className="p-3 font-medium text-gray-600">Store</td><td className="p-3">{selected.store_name} ({selected.store_signage})</td></tr>
+                    <tr className="border-t"><td className="p-3 font-medium text-gray-600">Address</td><td className="p-3">{[selected.brgy, selected.city, selected.province].filter(Boolean).join(", ") || "-"}</td></tr>
+                    <tr className="border-t"><td className="p-3 font-medium text-gray-600">Contact</td><td className="p-3">{selected.contact_number ?? "-"}</td></tr>
+                    <tr className="border-t"><td className="p-3 font-medium text-gray-600">Email</td><td className="p-3">{selected.customer_email ?? "-"}</td></tr>
+                    <tr className="border-t"><td className="p-3 font-medium text-gray-600">Store Type</td><td className="p-3">{storeTypeMap[selected.store_type] ?? selected.store_type ?? "-"}</td></tr>
+                    <tr className="border-t"><td className="p-3 font-medium text-gray-600">Discount Type</td><td className="p-3">{selected.discount_type ? discountTypeMap[selected.discount_type] ?? selected.discount_type : "-"}</td></tr>
+                    <tr className="border-t"><td className="p-3 font-medium text-gray-600">Encoder</td><td className="p-3">{userMap[selected.encoder_id] ?? selected.encoder_id ?? "-"}</td></tr>
+                    <tr className="border-t"><td className="p-3 font-medium text-gray-600">Active</td><td className="p-3">{(selected.isActive ?? 0) === 1 ? "Yes" : "No"}</td></tr>
+                  </tbody>
+                </table>
+              </div>
+              <StatBar stats={stats as any} />
+            </>
+          )}
+          {detailsTab === "discounts" && (
+            <div className="p-4 border border-t-0 border-gray-200 rounded-b-xl">
+              <CustomerDiscountPerProduct customer={selected} provider={provider} />
+            </div>
+          )}
+          {detailsTab === "brand-discounts" && (
+            <div className="p-4 border border-t-0 border-gray-200 rounded-b-xl">
+              <CustomerDiscountPerBrand customer={selected} provider={provider} />
+            </div>
+          )}
+          {detailsTab === "category-discounts" && (
+            <div className="p-4 border border-t-0 border-gray-200 rounded-b-xl">
+              <CustomerDiscountPerCategory customer={selected} provider={provider} />
+            </div>
+          )}
         </div>
       )}
 
-      <StatBar stats={stats as any} />
+      {!selected && <StatBar stats={stats as any} />}
 
       <CustomerFormDialog
         open={open}

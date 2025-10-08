@@ -30,3 +30,27 @@ export type Supplier = {
 };
 
 export type UpsertSupplierDTO = Partial<Omit<Supplier, "id">>;
+
+export type SupplierDiscountProduct = {
+  id: number;
+  supplier_id: number;
+  product_id: number;
+  line_discount_id: number;
+  created_at: string;
+};
+
+export type SupplierDiscountBrand = {
+  id: number;
+  supplier_id: number;
+  brand_id: number;
+  line_discount_id: number;
+  created_at: string;
+};
+
+export type SupplierDiscountCategory = {
+  id: number;
+  supplier_id: number;
+  category_id: number;
+  line_discount_id: number;
+  created_at: string;
+};

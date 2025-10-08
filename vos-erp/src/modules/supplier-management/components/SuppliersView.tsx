@@ -4,6 +4,9 @@ import { useEffect, useState } from "react";
 import type { DataProvider } from "../providers/DataProvider";
 import type { Supplier } from "../types";
 import { SupplierFormDialog } from "./SupplierFormDialog";
+import { SupplierDiscountPerProduct } from "./SupplierDiscountPerProduct";
+import { SupplierDiscountPerBrand } from "./SupplierDiscountPerBrand";
+import { SupplierDiscountPerCategory } from "./SupplierDiscountPerCategory";
 
 type DeliveryTerm = { id: number; delivery_name: string };
 type SupplierType = { id: number; transaction_type: string };
@@ -20,6 +23,7 @@ export function SuppliersView({ provider }: { provider: DataProvider }) {
     const [current, setCurrent] = useState<Supplier | null>(null);
     const [selected, setSelected] = useState<Supplier | null>(null);
     const [deliveryTerms, setDeliveryTerms] = useState<DeliveryTerm[]>([]);
+    const [detailsTab, setDetailsTab] = useState<"details" | "discounts" | "brand-discounts" | "category-discounts">("details");
 
     async function refresh() {
         const offset = (page - 1) * limit;
@@ -164,8 +168,8 @@ export function SuppliersView({ provider }: { provider: DataProvider }) {
                     </div>
                 </div>
             ) : (
-                <div className="overflow-hidden border border-gray-200 rounded-xl">
-                    <div className="flex items-center justify-between p-3 bg-gray-50 border-b">
+                <div>
+                    <div className="flex items-center justify-between p-3 bg-gray-50 border-b border-gray-200 rounded-t-xl">
                         <div className="font-medium">Supplier Details</div>
                         <div className="flex gap-2">
                             <button
@@ -186,61 +190,109 @@ export function SuppliersView({ provider }: { provider: DataProvider }) {
                             </button>
                         </div>
                     </div>
-                    <table className="w-full text-sm">
-                        <tbody>
-                            <tr className="border-t">
-                                <td className="p-3 font-medium text-gray-600">Supplier Name</td>
-                                <td className="p-3">{selected.supplier_name}</td>
-                            </tr>
-                            <tr className="border-t">
-                                <td className="p-3 font-medium text-gray-600">Supplier Shortcut</td>
-                                <td className="p-3">{selected.supplier_shortcut}</td>
-                            </tr>
-                            <tr className="border-t">
-                                <td className="p-3 font-medium text-gray-600">Contact Person</td>
-                                <td className="p-3">{selected.contact_person ?? "-"}</td>
-                            </tr>
-                            <tr className="border-t">
-                                <td className="p-3 font-medium text-gray-600">Email</td>
-                                <td className="p-3">{selected.email_address ?? "-"}</td>
-                            </tr>
-                            <tr className="border-t">
-                                <td className="p-3 font-medium text-gray-600">Phone</td>
-                                <td className="p-3">{selected.phone_number ?? "-"}</td>
-                            </tr>
-                            <tr className="border-t">
-                                <td className="p-3 font-medium text-gray-600">Address</td>
-                                <td className="p-3">{selected.address}</td>
-                            </tr>
-                            <tr className="border-t">
-                                <td className="p-3 font-medium text-gray-600">Supplier Type</td>
-                                <td className="p-3">{selected.supplier_type ?? "-"}</td>
-                            </tr>
-                            <tr className="border-t">
-                                <td className="p-3 font-medium text-gray-600">TIN</td>
-                                <td className="p-3">{selected.tin_number ?? "-"}</td>
-                            </tr>
-                            <tr className="border-t">
-                                <td className="p-3 font-medium text-gray-600">Payment Terms</td>
-                                <td className="p-3">{selected.payment_terms ?? "-"}</td>
-                            </tr>
-                            <tr className="border-t">
-                                <td className="p-3 font-medium text-gray-600">Delivery Terms</td>
-                                <td className="p-3">
-                                    {deliveryTerms.find((d) => d.id === selected.delivery_terms)?.delivery_name ??
-                                        selected.delivery_terms ?? "-"}
-                                </td>
-                            </tr>
-                            <tr className="border-t">
-                                <td className="p-3 font-medium text-gray-600">Date Added</td>
-                                <td className="p-3">{selected.date_added}</td>
-                            </tr>
-                            <tr className="border-t">
-                                <td className="p-3 font-medium text-gray-600">Is Active</td>
-                                <td className="p-3">{selected.isActive ? "Yes" : "No"}</td>
-                            </tr>
-                        </tbody>
-                    </table>
+                    <div className="border-b border-gray-200">
+                        <div className="flex border-b">
+                        <button
+                            className={`px-4 py-2 text-sm font-medium ${detailsTab === "details" ? "border-b-2 border-primary text-primary" : "text-gray-500"}`}
+                            onClick={() => setDetailsTab("details")}
+                        >
+                            Supplier Details
+                        </button>
+                        <button
+                            className={`px-4 py-2 text-sm font-medium ${detailsTab === "discounts" ? "border-b-2 border-primary text-primary" : "text-gray-500"}`}
+                            onClick={() => setDetailsTab("discounts")}
+                        >
+                            Supplier Discount per Product
+                        </button>
+                        <button
+                            className={`px-4 py-2 text-sm font-medium ${detailsTab === "brand-discounts" ? "border-b-2 border-primary text-primary" : "text-gray-500"}`}
+                            onClick={() => setDetailsTab("brand-discounts")}
+                        >
+                            Supplier Discount per Brand
+                        </button>
+                        <button
+                            className={`px-4 py-2 text-sm font-medium ${detailsTab === "category-discounts" ? "border-b-2 border-primary text-primary" : "text-gray-500"}`}
+                            onClick={() => setDetailsTab("category-discounts")}
+                        >
+                            Supplier Discount per Category
+                        </button>
+                        </div>
+                    </div>
+
+                    {detailsTab === "details" && (
+                        <div className="overflow-hidden border border-t-0 border-gray-200 rounded-b-xl">
+                            <table className="w-full text-sm">
+                                <tbody>
+                                    <tr className="border-t">
+                                        <td className="p-3 font-medium text-gray-600">Supplier Name</td>
+                                        <td className="p-3">{selected.supplier_name}</td>
+                                    </tr>
+                                    <tr className="border-t">
+                                        <td className="p-3 font-medium text-gray-600">Supplier Shortcut</td>
+                                        <td className="p-3">{selected.supplier_shortcut}</td>
+                                    </tr>
+                                    <tr className="border-t">
+                                        <td className="p-3 font-medium text-gray-600">Contact Person</td>
+                                        <td className="p-3">{selected.contact_person ?? "-"}</td>
+                                    </tr>
+                                    <tr className="border-t">
+                                        <td className="p-3 font-medium text-gray-600">Email</td>
+                                        <td className="p-3">{selected.email_address ?? "-"}</td>
+                                    </tr>
+                                    <tr className="border-t">
+                                        <td className="p-3 font-medium text-gray-600">Phone</td>
+                                        <td className="p-3">{selected.phone_number ?? "-"}</td>
+                                    </tr>
+                                    <tr className="border-t">
+                                        <td className="p-3 font-medium text-gray-600">Address</td>
+                                        <td className="p-3">{selected.address}</td>
+                                    </tr>
+                                    <tr className="border-t">
+                                        <td className="p-3 font-medium text-gray-600">Supplier Type</td>
+                                        <td className="p-3">{selected.supplier_type ?? "-"}</td>
+                                    </tr>
+                                    <tr className="border-t">
+                                        <td className="p-3 font-medium text-gray-600">TIN</td>
+                                        <td className="p-3">{selected.tin_number ?? "-"}</td>
+                                    </tr>
+                                    <tr className="border-t">
+                                        <td className="p-3 font-medium text-gray-600">Payment Terms</td>
+                                        <td className="p-3">{selected.payment_terms ?? "-"}</td>
+                                    </tr>
+                                    <tr className="border-t">
+                                        <td className="p-3 font-medium text-gray-600">Delivery Terms</td>
+                                        <td className="p-3">
+                                            {deliveryTerms.find((d) => d.id === selected.delivery_terms)?.delivery_name ??
+                                                selected.delivery_terms ?? "-"}
+                                        </td>
+                                    </tr>
+                                    <tr className="border-t">
+                                        <td className="p-3 font-medium text-gray-600">Date Added</td>
+                                        <td className="p-3">{selected.date_added}</td>
+                                    </tr>
+                                    <tr className="border-t">
+                                        <td className="p-3 font-medium text-gray-600">Is Active</td>
+                                        <td className="p-3">{selected.isActive ? "Yes" : "No"}</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+                    {detailsTab === "discounts" && (
+                        <div className="p-4 border border-t-0 border-gray-200 rounded-b-xl">
+                            <SupplierDiscountPerProduct supplier={selected} provider={provider as any} />
+                        </div>
+                    )}
+                    {detailsTab === "brand-discounts" && (
+                        <div className="p-4 border border-t-0 border-gray-200 rounded-b-xl">
+                            <SupplierDiscountPerBrand supplier={selected} provider={provider as any} />
+                        </div>
+                    )}
+                    {detailsTab === "category-discounts" && (
+                        <div className="p-4 border border-t-0 border-gray-200 rounded-b-xl">
+                            <SupplierDiscountPerCategory supplier={selected} provider={provider as any} />
+                        </div>
+                    )}
                 </div>
             )}
 

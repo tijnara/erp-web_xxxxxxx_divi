@@ -80,7 +80,6 @@ async function http<T = any>(input: string, init?: RequestInit): Promise<T> {
     ...init,
     headers: {
       "Content-Type": "application/json",
-      'Authorization': 'Bearer hTovVgKHSA-XqQFinWFQn6dOu9MFTMs2',
       ...(init?.headers || {}),
     },
     cache: "no-store",
@@ -127,13 +126,18 @@ export const fetchProvider = () => ({
 
   async updateCustomer(id: string | number, dto: UpsertCustomerDTO) {
     const payload = toAPI(dto);
-    const url = `${BASE}?id=${encodeURIComponent(String(id))}`;
-    const json = await http<{ data: any }>(url, { method: "PATCH", body: JSON.stringify(payload) });
+    const url = `${BASE}/${encodeURIComponent(String(id))}`;
+    const json = await http<{ data: any }>(url, {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    });
     return toUI((json as any).data ?? json);
   },
 
   async deleteCustomer(id: string | number) {
-    await http(`${BASE}?id=${encodeURIComponent(String(id))}`, { method: "DELETE" });
+    await http(`${BASE}/${encodeURIComponent(String(id))}`, {
+      method: "DELETE",
+    });
   },
 
   async listStoreTypes() {
@@ -149,5 +153,114 @@ export const fetchProvider = () => ({
   async listUsers() {
     const json = await http<{ data: { user_id: number; user_fname: string; user_lname: string }[] }>(itemsUrl("user"));
     return json.data || [];
+  },
+
+  async listProducts(productIds: number[]) {
+    const url = new URL(itemsUrl("products"));
+    if (productIds.length > 0) {
+      url.searchParams.set("filter[product_id][_in]", productIds.join(","));
+    }
+    url.searchParams.set("fields", "product_id,product_name");
+    const json = await http<{ data: { product_id: number; product_name: string }[] }>(url.toString());
+    return json.data || [];
+  },
+
+  async listLineDiscounts(lineDiscountIds: number[]) {
+    const url = new URL(itemsUrl("line_discount"));
+    if (lineDiscountIds.length > 0) {
+      url.searchParams.set("filter[id][_in]", lineDiscountIds.join(","));
+    }
+    url.searchParams.set("fields", "id,line_discount");
+    const json = await http<{ data: { id: number; line_discount: string }[] }>(url.toString());
+    return json.data || [];
+  },
+
+  async listBrands(brandIds: number[]) {
+    const url = new URL(itemsUrl("brand"));
+    if (brandIds.length > 0) {
+      url.searchParams.set("filter[brand_id][_in]", brandIds.join(","));
+    }
+    url.searchParams.set("fields", "brand_id,brand_name");
+    const json = await http<{ data: { brand_id: number; brand_name: string }[] }>(url.toString());
+    return json.data || [];
+  },
+
+  async listCategories(categoryIds: number[]) {
+    const url = new URL(itemsUrl("categories"));
+    if (categoryIds.length > 0) {
+      url.searchParams.set("filter[category_id][_in]", categoryIds.join(","));
+    }
+    url.searchParams.set("fields", "category_id,category_name");
+    const json = await http<{ data: { category_id: number; category_name: string }[] }>(url.toString());
+    return json.data || [];
+  },
+
+  async createCustomerDiscountProduct(data: { customer_id: number; product_id: number; line_discount_id: number; }) {
+    const url = itemsUrl("customer_discount_product");
+    await http(url, {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  },
+
+  async createCustomerDiscountBrand(data: { customer_id: number; brand_id: number; line_discount_id: number; }) {
+    const url = itemsUrl("customer_discount_brand");
+    await http(url, {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  },
+
+  async createCustomerDiscountCategory(data: { customer_id: number; category_id: number; line_discount_id: number; }) {
+    const url = itemsUrl("customer_discount_category");
+    await http(url, {
+      method: "POST",
+      body: JSON.stringify(data),
+    });
+  },
+
+  async listCustomerDiscountCategories(customerId: number) {
+    const url = new URL(itemsUrl("customer_discount_category"));
+    url.searchParams.set("filter[customer_id][_eq]", String(customerId));
+    const json = await http<{ data: any[] }>(url.toString());
+    return (json.data || []).map(row => ({
+      id: row.id,
+      customer_id: row.customer_id,
+      category_id: row.category_id,
+      line_discount_id: row.line_discount_id,
+      created_at: row.created_at,
+      updated_at: row.updated_at,
+      created_by: row.created_by,
+    }));
+  },
+
+  async listCustomerDiscountBrands(customerId: number) {
+    const url = new URL(itemsUrl("customer_discount_brand"));
+    url.searchParams.set("filter[customer_id][_eq]", String(customerId));
+    const json = await http<{ data: any[] }>(url.toString());
+    return (json.data || []).map(row => ({
+      id: row.id,
+      customer_id: row.customer_id,
+      brand_id: row.brand_id,
+      line_discount_id: row.line_discount_id,
+      created_at: row.created_at,
+      updated_at: row.updated_at,
+      created_by: row.created_by,
+    }));
+  },
+
+  async listCustomerDiscountProducts(customerId: number) {
+    const url = new URL(itemsUrl("customer_discount_product"));
+    url.searchParams.set("filter[customer_id][_eq]", String(customerId));
+    const json = await http<{ data: any[] }>(url.toString());
+    return (json.data || []).map(row => ({
+      id: row.id,
+      customer_id: row.customer_id,
+      product_id: row.product_id,
+      line_discount_id: row.line_discount_id,
+      created_at: row.created_at,
+      updated_at: row.updated_at,
+      created_by: row.created_by,
+    }));
   },
 });

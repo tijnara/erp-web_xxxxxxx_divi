@@ -93,25 +93,20 @@ function Node({ item, depth = 0 }: { item: NavItem; depth?: number }) {
 // --- sidebar shell ----------------------------------------------------------
 export function Sidebar() {
     return (
-        <aside className="flex w-72 shrink-0 border-r border-sidebar-border bg-sidebar backdrop-blur-sm">
-            <div className="w-full p-3">
-                <div className="flex items-center gap-2 px-2 pb-2 text-lg font-semibold tracking-tight">
-                    <img
-                        src="/vos.ico"
-                        alt="VOS ERP logo"
-                        width={24}
-                        height={24}
-                        className="bg-transparent"
-                    />
-                    <span>VOS ERP</span>
-                </div>
-                <div className="h-[calc(100vh-64px)] overflow-auto pr-1">
-                    <nav className="space-y-1">
-                        {nav.map((i) => (
-                            <Node key={i.label} item={i} />
-                        ))}
-                    </nav>
-                </div>
+        <aside className="flex w-72 shrink-0 flex-col border-r border-sidebar-border bg-sidebar backdrop-blur-sm">
+            <div className="flex h-14 items-center justify-center px-4 py-3">
+                <img
+                    src="/vos-erp-logo.png"
+                    alt="VOS ERP logo"
+                    className="h-auto w-32"
+                />
+            </div>
+            <div className="flex-1 overflow-y-auto p-3">
+                <nav className="space-y-1">
+                    {nav.map((item) => (
+                        <Node key={item.label} item={item} />
+                    ))}
+                </nav>
             </div>
         </aside>
     );

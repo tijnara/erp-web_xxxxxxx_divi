@@ -29,7 +29,37 @@ export type Customer = {
   customer_classification?: number | null;
   otherDetails?: string | null;
   classification?: number | null;
-  location?: any | null; // POINT
+  location: string | null;
+};
+
+export type CustomerDiscountProduct = {
+  id: number;
+  customer_id: number;
+  product_id: number;
+  line_discount_id: number;
+  created_at: string;
+  updated_at: string;
+  created_by: number;
+};
+
+export type CustomerDiscountBrand = {
+  id: number;
+  customer_id: number;
+  brand_id: number;
+  line_discount_id: number;
+  created_at: string;
+  updated_at: string;
+  created_by: number | null;
+};
+
+export type CustomerDiscountCategory = {
+  id: number;
+  customer_id: number;
+  category_id: number;
+  line_discount_id: number;
+  created_at: string;
+  updated_at: string;
+  created_by: number | null;
 };
 
 export type UpsertCustomerDTO = Partial<Omit<Customer, "id">>;

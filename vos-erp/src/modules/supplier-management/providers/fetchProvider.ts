@@ -29,6 +29,7 @@ function toUI(row: any): Supplier {
         date_added: row.date_added,
         supplier_image: row.supplier_image,
         isActive: row.isActive,
+        specialty: row.specialty,
         nonBuy: row.nonBuy,
     };
 }
@@ -96,5 +97,113 @@ export const fetchProvider = (): DataProvider => ({
     async deleteSupplier(id) {
         await http(`${BASE}/${id}`, { method: "DELETE" });
     },
-});
 
+    async listProducts(productIds: number[]) {
+        const url = new URL(itemsUrl("products"));
+        if (productIds.length > 0) {
+          url.searchParams.set("filter[product_id][_in]", productIds.join(","));
+        }
+        url.searchParams.set("fields", "product_id,product_name");
+        const json = await http<{ data: { product_id: number; product_name: string }[] }>(url.toString());
+        return json.data || [];
+    },
+
+    async listLineDiscounts(lineDiscountIds: number[]) {
+        const url = new URL(itemsUrl("line_discount"));
+        if (lineDiscountIds.length > 0) {
+          url.searchParams.set("filter[id][_in]", lineDiscountIds.join(","));
+        }
+        url.searchParams.set("fields", "id,line_discount");
+        const json = await http<{ data: { id: number; line_discount: string }[] }>(url.toString());
+        return json.data || [];
+    },
+
+    async createSupplierDiscountProduct(data: { supplier_id: number; product_id: number; line_discount_id: number; }) {
+        const url = itemsUrl("supplier_discount_products");
+        await http(url, {
+          method: "POST",
+          body: JSON.stringify(data),
+        });
+    },
+
+    async listSupplierDiscountProducts(supplierId: number) {
+        const url = new URL(itemsUrl("supplier_discount_products"));
+        url.searchParams.set("filter[supplier_id][_eq]", String(supplierId));
+        const json = await http<{ data: any[] }>(url.toString());
+        return (json.data || []).map(row => ({
+          id: row.id,
+          supplier_id: row.supplier_id,
+          product_id: row.product_id,
+          line_discount_id: row.line_discount_id,
+          created_at: row.created_at,
+          updated_at: row.updated_at,
+          created_by: row.created_by,
+        }));
+    },
+
+    async listBrands(brandIds: number[]) {
+        const url = new URL(itemsUrl("brand"));
+        if (brandIds.length > 0) {
+            url.searchParams.set("filter[brand_id][_in]", brandIds.join(","));
+        }
+        url.searchParams.set("fields", "brand_id,brand_name");
+        const json = await http<{ data: { brand_id: number; brand_name: string }[] }>(url.toString());
+        return json.data || [];
+    },
+
+    async createSupplierDiscountBrand(data: { supplier_id: number; brand_id: number; line_discount_id: number; }) {
+        const url = itemsUrl("supplier_discount_brand");
+        await http(url, {
+            method: "POST",
+            body: JSON.stringify(data),
+        });
+    },
+
+    async listSupplierDiscountBrands(supplierId: number) {
+        const url = new URL(itemsUrl("supplier_discount_brand"));
+        url.searchParams.set("filter[supplier_id][_eq]", String(supplierId));
+        const json = await http<{ data: any[] }>(url.toString());
+        return (json.data || []).map(row => ({
+            id: row.id,
+            supplier_id: row.supplier_id,
+            brand_id: row.brand_id,
+            line_discount_id: row.line_discount_id,
+            created_at: row.created_at,
+            updated_at: row.updated_at,
+            created_by: row.created_by,
+        }));
+    },
+
+    async listCategories(categoryIds: number[]) {
+        const url = new URL(itemsUrl("categories"));
+        if (categoryIds.length > 0) {
+            url.searchParams.set("filter[category_id][_in]", categoryIds.join(","));
+        }
+        url.searchParams.set("fields", "category_id,category_name");
+        const json = await http<{ data: { category_id: number; category_name: string }[] }>(url.toString());
+        return json.data || [];
+    },
+
+    async createSupplierDiscountCategory(data: { supplier_id: number; category_id: number; line_discount_id: number; }) {
+        const url = itemsUrl("supplier_discount_categories");
+        await http(url, {
+            method: "POST",
+            body: JSON.stringify(data),
+        });
+    },
+
+    async listSupplierDiscountCategories(supplierId: number) {
+        const url = new URL(itemsUrl("supplier_discount_categories"));
+        url.searchParams.set("filter[supplier_id][_eq]", String(supplierId));
+        const json = await http<{ data: any[] }>(url.toString());
+        return (json.data || []).map(row => ({
+            id: row.id,
+            supplier_id: row.supplier_id,
+            category_id: row.category_id,
+            line_discount_id: row.line_discount_id,
+            created_at: row.created_at,
+            updated_at: row.updated_at,
+            created_by: row.created_by,
+        }));
+    },
+});

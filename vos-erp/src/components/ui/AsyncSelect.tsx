@@ -52,8 +52,9 @@ export function AsyncSelect({
                 const url = new URL(fetchUrl, window.location.origin);
                 if (q.trim()) url.searchParams.set("q", q.trim());
                 const res = await fetch(url.toString(), { credentials: "include" });
-                const data: Option[] = await res.json();
-                setOpts(data);
+                const json = await res.json();
+                const data = json.data || json;
+                setOpts(Array.isArray(data) ? data : []);
             } catch {
                 setOpts([]);
             } finally {

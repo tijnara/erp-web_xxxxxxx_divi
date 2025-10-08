@@ -3,7 +3,12 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { Customer, UpsertCustomerDTO } from "../types";
+import { Modal } from "@/components/ui/Modal";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
+// Re-triggering TS server
 type Province = { province_code: string; province_name: string; region_code?: string; psgc_code?: string };
 type City = { city_code: string; city_name: string; province_code: string; region_desc?: string; psgc_code?: string };
 type Barangay = { brgy_code: string; brgy_name: string; city_code: string; province_code?: string; region_code?: string };
@@ -200,210 +205,283 @@ export function CustomerFormDialog({
         setProvinces(provArr);
         setCities(cityArr);
         setBarangays(brgyArr);
-
-        // Derive codes from existing text (if any)
-        const pCode = findProvinceCodeByName(initial?.province ?? "");
-        setProvinceCode(pCode);
-        const cCode = findCityCodeByName(initial?.city ?? "", pCode);
-        setCityCode(cCode);
-        if (cCode) {
-          const c = cityArr.find((x) => x.city_code === cCode);
-          if (c) setCity(c.city_name);
-        }
-      } catch (e) {
-        // Fallback: keep empty lists if JSON not available
-        setProvinces([]);
-        setCities([]);
-        setBarangays([]);
-        setProvinceCode("");
-        setCityCode("");
+      } catch (err) {
+        console.error("Failed to load geo data", err);
       } finally {
         setLoadingGeo(false);
       }
     })();
-  }, [open, initial]);
+  }, [open, initial, mode]);
 
-  // When province code changes, clear dependent fields
+  // When initial data is set, also set the initial province/city codes
   useEffect(() => {
-    if (loadingGeo) return; // avoid clearing during initial bootstrap
-    setCityCode("");
-    setCity("");
-    setBrgy("");
-  }, [provinceCode, loadingGeo]);
+    if (initial?.province && provinces.length > 0) {
+      const pCode = findProvinceCodeByName(initial.province);
+      setProvinceCode(pCode);
+      if (initial.city && cities.length > 0) {
+        const cCode = findCityCodeByName(initial.city, pCode);
+        setCityCode(cCode);
+      }
+    }
+  }, [initial, provinces, cities]);
 
-  // When city code changes, clear barangay text
-  useEffect(() => {
-    if (loadingGeo) return; // avoid clearing during initial bootstrap
-    setBrgy("");
-  }, [cityCode, loadingGeo]);
-
-  if (!open) return null;
-
-  const title = mode === "create" ? "Add Customer" : "Edit Customer";
-
-  async function handleSubmit() {
-    const dto: UpsertCustomerDTO = {
-      customer_code: customer_code || undefined,
-      customer_name: customer_name || undefined,
-      store_name: store_name || undefined,
-      store_signage: store_signage || undefined,
-      province: province || undefined,
-      city: city || undefined,
-      brgy: brgy || undefined,
-      contact_number: contact_number || undefined,
-      customer_email: customer_email || undefined,
-      store_type: store_type || undefined,
-      discount_type: discount_type ?? undefined,
-      customer_classification: customer_classification ?? undefined,
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const data: UpsertCustomerDTO = {
+      customer_code,
+      customer_name,
+      store_name,
+      store_signage,
+      province,
+      city,
+      brgy,
+      contact_number,
+      customer_email,
+      store_type,
+      discount_type,
+      customer_classification,
       isActive,
       isVAT,
       isEWT,
       encoder_id,
     };
-    await onSubmit(dto);
+    await onSubmit(data);
     onClose();
-  }
+  };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="absolute inset-0 bg-black/30" onClick={onClose} />
-      <div className="relative w-full max-w-3xl bg-white rounded-xl shadow-lg border">
-        <div className="p-4 border-b flex items-center justify-between">
-          <div className="font-semibold">{title}</div>
-          <button className="text-sm text-gray-500" onClick={onClose}>Close</button>
+  if (!open) return null;
+
+  // @ts-ignore
+    // @ts-ignore
+    return (
+    <Modal open={open} onClose={onClose} title={`${mode === "create" ? "Create" : "Edit"} Customer`}>
+      <form onSubmit={handleSubmit}>
+        <div className="p-4">
+          <Tabs defaultValue="general" className="col-span-2">
+            <TabsList>
+              <TabsTrigger value="general">General Information</TabsTrigger>
+            </TabsList>
+            <TabsContent value="general">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4">
+                <div className="form-group">
+                  <label htmlFor="customer_code">Customer Code</label>
+                  <Input id="customer_code" value={customer_code} readOnly />
+                </div>
+                <div className="form-group">
+                  <label htmlFor="customer_name">Customer Name</label>
+                  <Input id="customer_name" value={customer_name} onChange={(e) => setName(e.target.value)} required />
+                </div>
+                <div className="form-group">
+                  <label htmlFor="store_name">Store Name</label>
+                  <Input id="store_name" value={store_name} onChange={(e) => setStoreName(e.target.value)} />
+                </div>
+                <div className="form-group">
+                  <label htmlFor="store_signage">Store Signage</label>
+                  <Input id="store_signage" value={store_signage} onChange={(e) => setStoreSignage(e.target.value)} />
+                </div>
+
+                <div className="form-group">
+                  <label htmlFor="province" className="block text-sm font-medium text-gray-700">
+                    Province
+                  </label>
+                  <select
+                    id="province"
+                    value={province}
+                    onChange={(e) => {
+                      const newProvName = e.target.value;
+                      setProvince(newProvName);
+                      const newProvCode = findProvinceCodeByName(newProvName);
+                      setProvinceCode(newProvCode);
+                      setCity(""); // Reset city
+                      setCityCode("");
+                      setBrgy(""); // Reset brgy
+                    }}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                    disabled={loadingGeo}
+                  >
+                    <option value="">{loadingGeo ? "Loading..." : "Select Province"}</option>
+                    {provinceOptions.map((p) => (
+                      <option key={`${p.province_code}-${p.province_name}`} value={p.province_name}>
+                        {p.province_name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="form-group">
+                  <label htmlFor="city" className="block text-sm font-medium text-gray-700">
+                    City
+                  </label>
+                  <select
+                    id="city"
+                    value={city}
+                    onChange={(e) => {
+                      const newCityName = e.target.value;
+                      setCity(newCityName);
+                      const newCityCode = findCityCodeByName(newCityName, provinceCode);
+                      setCityCode(newCityCode);
+                      setBrgy(""); // Reset brgy
+                    }}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                    disabled={!province || loadingGeo}
+                  >
+                    <option value="">Select City</option>
+                    {cityOptions.map((c) => (
+                      <option key={c.city_code} value={c.city_name}>
+                        {c.city_name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="form-group">
+                  <label htmlFor="brgy" className="block text-sm font-medium text-gray-700">
+                    Barangay
+                  </label>
+                  <select
+                    id="brgy"
+                    value={brgy}
+                    onChange={(e) => setBrgy(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                    disabled={!city || loadingGeo}
+                  >
+                    <option value="">Select Barangay</option>
+                    {barangayOptions.map((b) => (
+                      <option key={b.brgy_code} value={b.brgy_name}>
+                        {b.brgy_name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="form-group">
+                  <label htmlFor="contact_number">Contact</label>
+                  <Input id="contact_number" value={contact_number} onChange={(e) => setContact(e.target.value)} required />
+                </div>
+                <div className="form-group">
+                  <label htmlFor="customer_email">Email</label>
+                  <Input id="customer_email" type="email" value={customer_email} onChange={(e) => setEmail(e.target.value)} />
+                </div>
+                <div className="form-group">
+                  <label htmlFor="store_type" className="block text-sm font-medium text-gray-700">
+                    Store Type
+                  </label>
+                  <select
+                    id="store_type"
+                    value={store_type}
+                    onChange={(e) => setStoreType(Number(e.target.value))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                  >
+                    <option value={0}>Select Store Type</option>
+                    {storeTypes.map((st) => (
+                      <option key={st.id} value={st.id}>
+                        {st.store_type}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label htmlFor="discount_type" className="block text-sm font-medium text-gray-700">
+                    Discount Type
+                  </label>
+                  <select
+                    id="discount_type"
+                    value={discount_type ?? ""}
+                    onChange={(e) => setDiscountType(e.target.value ? Number(e.target.value) : null)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                  >
+                    <option value="">Select Discount Type</option>
+                    {discountTypes.map((dt) => (
+                      <option key={dt.id} value={dt.id}>
+                        {dt.discount_type}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label htmlFor="customer_classification" className="block text-sm font-medium text-gray-700">
+                    Classification
+                  </label>
+                  <select
+                    id="customer_classification"
+                    value={customer_classification ?? ""}
+                    onChange={(e) => setCustomerClassification(e.target.value ? Number(e.target.value) : null)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                  >
+                    <option value="">Select Classification</option>
+                    {customerClassifications.map((cc) => (
+                      <option key={cc.id} value={cc.id}>
+                        {cc.classification_name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="form-group col-span-2">
+                  <label className="block text-sm font-medium text-gray-700">Status</label>
+                  <div className="flex items-center gap-4 mt-1">
+                    <label className="flex items-center">
+                      <input
+                        type="radio"
+                        name="isActive"
+                        value={1}
+                        checked={isActive === 1}
+                        onChange={() => setIsActive(1)}
+                        className="form-radio"
+                      />
+                      <span className="ml-2">Active</span>
+                    </label>
+                    <label className="flex items-center">
+                      <input
+                        type="radio"
+                        name="isActive"
+                        value={0}
+                        checked={isActive === 0}
+                        onChange={() => setIsActive(0)}
+                        className="form-radio"
+                      />
+                      <span className="ml-2">Inactive</span>
+                    </label>
+                  </div>
+                </div>
+                <div className="form-group col-span-2">
+                  <label className="block text-sm font-medium text-gray-700">Tax Settings</label>
+                  <div className="flex items-center gap-4 mt-1">
+                    <label className="flex items-center">
+                      <input
+                        type="checkbox"
+                        checked={isVAT === 1}
+                        onChange={(e) => setIsVAT(e.target.checked ? 1 : 0)}
+                        className="form-checkbox"
+                      />
+                      <span className="ml-2">VAT</span>
+                    </label>
+                    <label className="flex items-center">
+                      <input
+                        type="checkbox"
+                        checked={isEWT === 1}
+                        onChange={(e) => setIsEWT(e.target.checked ? 1 : 0)}
+                        className="form-checkbox"
+                      />
+                      <span className="ml-2">EWT</span>
+                    </label>
+                  </div>
+                </div>
+                <div className="form-group">
+                  <label htmlFor="encoder">Encoder</label>
+                  <Input id="encoder" value={encoderName} readOnly />
+                </div>
+              </div>
+            </TabsContent>
+          </Tabs>
         </div>
-        <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-          <div>
-            <label className="block text-xs text-gray-600 mb-1">Customer Code</label>
-            <input className="w-full rounded-lg border border-gray-200 px-3 py-2 bg-gray-100" value={customer_code} readOnly placeholder="CC-0001" />
-          </div>
-          <div className="md:col-span-2">
-            <label className="block text-xs text-gray-600 mb-1">Customer Name</label>
-            <input className="w-full rounded-lg border border-gray-200 px-3 py-2" value={customer_name} onChange={(e)=>setName(e.target.value)} placeholder="Enter customer name" />
-          </div>
-          <div>
-            <label className="block text-xs text-gray-600 mb-1">Store Name</label>
-            <input className="w-full rounded-lg border border-gray-200 px-3 py-2" value={store_name} onChange={(e)=>setStoreName(e.target.value)} placeholder="Enter store name" />
-          </div>
-          <div>
-            <label className="block text-xs text-gray-600 mb-1">Store Signage</label>
-            <input className="w-full rounded-lg border border-gray-200 px-3 py-2" value={store_signage} onChange={(e)=>setStoreSignage(e.target.value)} placeholder="Enter store signage" />
-          </div>
-          <div>
-            <label className="block text-xs text-gray-600 mb-1">Contact Number</label>
-            <input className="w-full rounded-lg border border-gray-200 px-3 py-2" value={contact_number} onChange={(e)=>setContact(e.target.value)} placeholder="Enter contact number" />
-          </div>
-          <div>
-            <label className="block text-xs text-gray-600 mb-1">Email</label>
-            <input className="w-full rounded-lg border border-gray-200 px-3 py-2" value={customer_email ?? ""} onChange={(e)=>setEmail(e.target.value)} placeholder="Enter email address" />
-          </div>
 
-          <div>
-            <label className="block text-xs text-gray-600 mb-1">Province</label>
-            <select
-              className="w-full rounded-lg border border-gray-200 px-3 py-2"
-              value={provinceCode}
-              onChange={(e) => {
-                const code = e.target.value;
-                setProvinceCode(code);
-                const p = provinceOptions.find((x) => x.province_code === code);
-                setProvince(p ? p.province_name : "");
-              }}
-            >
-              <option value="">Select a Province</option>
-              {provinceOptions.map((p, i) => (
-                <option key={`${p.province_code}-${i}`} value={p.province_code}>{p.province_name}</option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-xs text-gray-600 mb-1">City / Municipality</label>
-            <select
-              className="w-full rounded-lg border border-gray-200 px-3 py-2"
-              value={cityCode}
-              onChange={(e) => {
-                const code = e.target.value;
-                setCityCode(code);
-                const c = cityOptions.find((x) => x.city_code === code);
-                setCity(c ? c.city_name : "");
-              }}
-              disabled={!provinceCode}
-            >
-              <option value="">{provinceCode ? "Select a City / Municipality" : "Select province first"}</option>
-              {cityOptions.map((c, i) => (
-                <option key={`${c.city_code}-${i}`} value={c.city_code}>{c.city_name}</option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-xs text-gray-600 mb-1">Barangay</label>
-            <select
-              className="w-full rounded-lg border border-gray-200 px-3 py-2"
-              value={brgy || ""}
-              onChange={(e) => {
-                const name = e.target.value;
-                setBrgy(name);
-              }}
-              disabled={!cityCode}
-            >
-              <option value="">{cityCode ? "Select a Barangay" : "Select city first"}</option>
-              {barangayOptions.map((b, i) => (
-                <option key={`${b.brgy_code}-${i}`} value={b.brgy_name}>{b.brgy_name}</option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-xs text-gray-600 mb-1">Store Type</label>
-            <select className="w-full rounded-lg border border-gray-200 px-3 py-2" value={store_type} onChange={(e)=>setStoreType(Number(e.target.value))}>
-              <option value={0}>Select store type</option>
-              {storeTypes.map((t)=> (
-                <option key={t.id} value={t.id}>{t.store_type}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="block text-xs text-gray-600 mb-1">Discount Type</label>
-            <select className="w-full rounded-lg border border-gray-200 px-3 py-2" value={discount_type ?? 0} onChange={(e)=>setDiscountType(Number(e.target.value) || null)}>
-              <option value={0}>Select discount</option>
-              {discountTypes.map((t)=> (
-                <option key={t.id} value={t.id}>{t.discount_type}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="block text-xs text-gray-600 mb-1">Customer Classification</label>
-            <select className="w-full rounded-lg border border-gray-200 px-3 py-2" value={customer_classification ?? 0} onChange={(e)=>setCustomerClassification(Number(e.target.value) || null)}>
-              <option value={0}>Select classification</option>
-              {customerClassifications.map((c)=> (
-                <option key={c.id} value={c.id}>{c.classification_name}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="block text-xs text-gray-600 mb-1">Encoder ID</label>
-            <input type="text" className="w-full rounded-lg border border-gray-200 px-3 py-2 bg-gray-100" value={encoderName} readOnly placeholder="Encoder Name" />
-          </div>
-          <div className="flex items-center gap-2 mt-2">
-            <input id="isActive" type="checkbox" className="h-4 w-4" checked={!!isActive} onChange={(e)=>setIsActive(e.target.checked ? 1 : 0)} />
-            <label htmlFor="isActive" className="text-sm">Active</label>
-          </div>
-          <div className="flex items-center gap-2 mt-2">
-            <input id="isVAT" type="checkbox" className="h-4 w-4" checked={!!isVAT} onChange={(e)=>setIsVAT(e.target.checked ? 1 : 0)} />
-            <label htmlFor="isVAT" className="text-sm">VAT</label>
-          </div>
-          <div className="flex items-center gap-2 mt-2">
-            <input id="isEWT" type="checkbox" className="h-4 w-4" checked={!!isEWT} onChange={(e)=>setIsEWT(e.target.checked ? 1 : 0)} />
-            <label htmlFor="isEWT" className="text-sm">EWT</label>
-          </div>
+        <div className="flex justify-end gap-2 p-4 border-t">
+          <Button variant="ghost" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button type="submit">Save</Button>
         </div>
-        <div className="p-4 border-t flex justify-end gap-2">
-          <button className="px-3 py-2 rounded border" onClick={onClose}>Cancel</button>
-          <button className="px-3 py-2 rounded bg-black text-white" onClick={handleSubmit}>{mode === "create" ? "Create" : "Save"}</button>
-        </div>
-      </div>
-    </div>
+      </form>
+    </Modal>
   );
 }

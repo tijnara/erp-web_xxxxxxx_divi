@@ -1,8 +1,10 @@
 "use client";
 import { fetchProvider } from "./providers/fetchProvider";
 import { SuppliersView } from "./components/SuppliersView";
+import { DataProvider } from "./providers/DataProvider";
 
 export function SupplierManagementModule() {
+  const provider = fetchProvider() as DataProvider;
   return (
     <div className="space-y-4">
       <div>
@@ -11,7 +13,7 @@ export function SupplierManagementModule() {
           Manage your HVAC supplier relationships and track performance
         </p>
       </div>
-      <SuppliersView provider={fetchProvider()} />
+      <SuppliersView provider={provider} />
     </div>
   );
 }
