@@ -101,7 +101,7 @@ export const nav: NavItem[] = [
         icon: BarChart,
         children: [
             { label: "Chart of Account", href: "/reports/chart-of-account", icon: Book },
-            { label: "Asset & Equipment", href: "/reports/asset-equipment", icon: Truck },
+            { label: "Assets & Equipments", href: "/reports/assets-equipments", icon: Truck },
             { label: "Accounts Payable", href: "/reports/accounts-payable", icon: ArrowDown },
             {
                 label: "Accounts Receivable",
