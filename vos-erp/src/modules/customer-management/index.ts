@@ -1,2 +1,2 @@
-// src/modules/customer-management/index.ts
+// src/modules/customer-management/index.tsx
 export { CustomerManagementModule } from "./CustomerManagementModule";

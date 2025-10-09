@@ -8,6 +8,7 @@
   },
   "dependencies": {
     "@directus/sdk": "^20.1.0",
+    "next-auth": "^4.24.11",
     "tailwindcss-animate": "^1.0.7"
   },
   "devDependencies": {

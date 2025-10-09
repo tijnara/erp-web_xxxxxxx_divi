@@ -57,6 +57,10 @@ export function SupplierDiscountPerProduct({
   }, [supplier, provider]);
 
   const handleAddDiscount = async (data: { product_id: number; line_discount_id: number; }) => {
+    if (!supplier?.id) {
+      alert("Supplier ID is missing. Cannot submit discount.");
+      return;
+    }
     await provider.createSupplierDiscountProduct({
       ...data,
       supplier_id: supplier.id as number,

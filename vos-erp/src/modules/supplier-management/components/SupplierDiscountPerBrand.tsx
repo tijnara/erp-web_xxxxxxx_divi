@@ -57,6 +57,10 @@ export function SupplierDiscountPerBrand({
   }, [supplier, provider]);
 
   const handleAddDiscount = async (data: { brand_id: number; line_discount_id: number; }) => {
+    if (!supplier?.id) {
+      alert("Supplier ID is missing. Cannot submit discount.");
+      return;
+    }
     await provider.createSupplierDiscountBrand({
       ...data,
       supplier_id: supplier.id as number,
@@ -130,4 +134,3 @@ export function SupplierDiscountPerBrand({
     </div>
   );
 }
-

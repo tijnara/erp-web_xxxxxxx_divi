@@ -58,6 +58,7 @@ export const nav: NavItem[] = [
                     },
                 ],
             },
+            { label: "Branch", href: "/admin/branch", icon: Landmark },
         ],
     },
     {

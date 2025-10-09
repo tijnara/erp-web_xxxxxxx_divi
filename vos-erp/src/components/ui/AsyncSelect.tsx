@@ -12,6 +12,7 @@ export function AsyncSelect({
                                 initial,
                                 onChange,
                                 disabled,
+                                mapOption,
                             }: {
     label: string;
     placeholder?: string;
@@ -19,6 +20,7 @@ export function AsyncSelect({
     initial?: Option | null;          // preselected (for edit)
     onChange: (opt: Option | null) => void;
     disabled?: boolean;
+    mapOption?: (item: any) => Option;
 }) {
     const [q, setQ] = useState("");
     const [open, setOpen] = useState(false);
@@ -53,7 +55,10 @@ export function AsyncSelect({
                 if (q.trim()) url.searchParams.set("q", q.trim());
                 const res = await fetch(url.toString(), { credentials: "include" });
                 const json = await res.json();
-                const data = json.data || json;
+                let data = json.data || json;
+                if (Array.isArray(data) && mapOption) {
+                    data = data.map(mapOption);
+                }
                 setOpts(Array.isArray(data) ? data : []);
             } catch {
                 setOpts([]);
@@ -64,7 +69,7 @@ export function AsyncSelect({
         return () => {
             if (timer.current) window.clearTimeout(timer.current);
         };
-    }, [q, open, fetchUrl]);
+    }, [q, open, fetchUrl, mapOption]);
 
     const display = useMemo(() => sel?.name ?? "", [sel]);
 
@@ -102,9 +107,9 @@ export function AsyncSelect({
                         <div className="p-2 text-sm text-gray-500">No results</div>
                     )}
                     {!loading &&
-                        opts.map((o) => (
+                        opts.map((o, idx) => (
                             <button
-                                key={`${o.id}`}
+                                key={o.id !== undefined && o.id !== null ? `${o.id}` : `option-${idx}`}
                                 type="button"
                                 className="block w-full text-left px-3 py-2 hover:bg-zinc-100 dark:hover:bg-zinc-800"
                                 onClick={() => {

@@ -3,7 +3,7 @@ import { SalesmanManagementModule } from "@/modules/salesman-management";
 
 export const dynamic = "force-dynamic";
 
-export default function Page() {
+export default function SalesmanPage() {
     return (
         <div className="p-4 md:p-6">
             <SalesmanManagementModule />

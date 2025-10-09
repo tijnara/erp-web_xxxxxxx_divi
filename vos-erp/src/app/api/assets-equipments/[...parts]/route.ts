@@ -1,4 +1,4 @@
-// src/app/api/assets-equipments/[[...parts]]/route.ts
+// src/app/api/assets-equipments/[...parts]/route.ts
 import {NextRequest, NextResponse} from 'next/server';
 
 const API_BASE = 'http://100.119.3.44:8090/items';
@@ -78,4 +78,3 @@ export async function PUT(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
     return proxyRequest(request);
 }
-
