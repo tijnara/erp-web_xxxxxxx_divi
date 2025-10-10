@@ -190,10 +190,18 @@ export function PurchaseOrderView() {
   };
 
   // Handlers
-  const handlePOClick = (poId: number) => {
+  const handlePOClick = async (poId: number) => {
     setActivePOId(poId);
     setTab("products");
     setShowPOModal(false);
+    // Fetch products for this PO only
+    try {
+      const res = await fetch(`${API_BASE}/purchase_order_products?filter[purchase_order_id]=${poId}`);
+      const json = await res.json();
+      setProducts(json.data || []);
+    } catch {
+      setProducts([]);
+    }
   };
 
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -323,21 +331,31 @@ export function PurchaseOrderView() {
                           <th className="px-6 py-3">Branch/Warehouse</th>
                           <th className="px-6 py-3 text-right">Qty</th>
                           <th className="px-6 py-3 text-right">Unit Price</th>
-                          <th className="px-6 py-3 text-right">Subtotal</th>
+                          <th className="px-6 py-3 text-right">Approved Price</th>
+                          <th className="px-6 py-3 text-right">Discounted Price</th>
+                          <th className="px-6 py-3 text-right">VAT Amount</th>
+                          <th className="px-6 py-3 text-right">Withholding Amount</th>
+                          <th className="px-6 py-3 text-right">Total Amount</th>
+                          <th className="px-6 py-3">Received</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {productsForPO.length > 0 ? productsForPO.map(p => (
+                        {products.length > 0 ? products.map(p => (
                           <tr key={p.purchase_order_product_id} className="bg-white border-b hover:bg-gray-50">
                             <td className="px-6 py-4 font-mono text-xs">{p.product_id}</td>
                             <td className="px-6 py-4 font-medium text-gray-900">Product {p.product_id}</td>
                             <td className="px-6 py-4">Branch {p.branch_id}</td>
                             <td className="px-6 py-4 text-right">{p.ordered_quantity}</td>
                             <td className="px-6 py-4 text-right">₱{parseFloat(p.unit_price).toFixed(2)}</td>
-                            <td className="px-6 py-4 text-right font-semibold">₱{(p.ordered_quantity * parseFloat(p.unit_price)).toFixed(2)}</td>
+                            <td className="px-6 py-4 text-right">{p.approved_price !== null ? `₱${parseFloat(p.approved_price).toFixed(2)}` : '-'}</td>
+                            <td className="px-6 py-4 text-right">{p.discounted_price !== null ? `₱${parseFloat(p.discounted_price).toFixed(2)}` : '-'}</td>
+                            <td className="px-6 py-4 text-right">{p.vat_amount !== null ? `₱${parseFloat(p.vat_amount).toFixed(2)}` : '-'}</td>
+                            <td className="px-6 py-4 text-right">{p.withholding_amount !== null ? `₱${parseFloat(p.withholding_amount).toFixed(2)}` : '-'}</td>
+                            <td className="px-6 py-4 text-right">₱{parseFloat(p.total_amount).toFixed(2)}</td>
+                            <td className="px-6 py-4">{p.received !== null ? String(p.received) : '-'}</td>
                           </tr>
                         )) : (
-                          <tr><td colSpan={6} className="text-center py-8 text-gray-500">No products have been added to this order.</td></tr>
+                          <tr><td colSpan={11} className="text-center py-8 text-gray-500">No products have been added to this order.</td></tr>
                         )}
                       </tbody>
                     </table>
@@ -742,7 +760,7 @@ export function PurchaseOrderView() {
                   label="Branch"
                   placeholder="Search Branch..."
                   fetchUrl="http://100.119.3.44:8090/items/branches"
-                  mapOption={(branch: any) => ({ id: branch.branch_id, name: branch.branch_name })}
+                  mapOption={(branch: any) => ({ id: branch.id, name: branch.branch_name })}
                   onChange={(opt) => setSelectedBranch(opt as { id: number | string; name: string } | null)}
                   disabled={false}
                 />
