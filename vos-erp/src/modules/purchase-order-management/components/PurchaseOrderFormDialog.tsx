@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { Dialog } from "@/components/ui/dialog";
 
 interface PurchaseOrderFormDialogProps {
@@ -29,6 +29,21 @@ export function PurchaseOrderFormDialog({
   const [formError, setFormError] = useState<string>("");
   const [priceTypes, setPriceTypes] = useState<any[]>([]);
   const [priceTypeLoading, setPriceTypeLoading] = useState(false);
+  const [productFields, setProductFields] = useState({
+    product_id: "",
+    ordered_quantity: "",
+    unit_price: "",
+    approved_price: "",
+    discounted_price: "",
+    vat_amount: "",
+    withholding_amount: "",
+    total_amount: "",
+    branch_id: "",
+    received: false,
+  });
+  const [productError, setProductError] = useState("");
+  const [isProductSubmitting, setIsProductSubmitting] = useState(false);
+  const modalRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (current?.supplier_id) {
@@ -52,6 +67,29 @@ export function PurchaseOrderFormDialog({
     }
     if (open) fetchPriceTypes();
   }, [open]);
+
+  // Close modal on backdrop click or Escape key
+  useEffect(() => {
+    if (!open) return;
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") onOpenChange(false);
+    }
+    function handleClick(e: MouseEvent) {
+      if (modalRef.current && e.target === modalRef.current) {
+        onOpenChange(false);
+      }
+    }
+    document.addEventListener("keydown", handleKeyDown);
+    if (modalRef.current) {
+      modalRef.current.addEventListener("mousedown", handleClick);
+    }
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      if (modalRef.current) {
+        modalRef.current.removeEventListener("mousedown", handleClick);
+      }
+    };
+  }, [open, onOpenChange]);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -87,11 +125,78 @@ export function PurchaseOrderFormDialog({
     }
   };
 
+  // Handle product field changes
+  const handleProductFieldChange = useCallback((e) => {
+    const { name, value, type, checked } = e.target;
+    setProductFields((prev) => ({
+      ...prev,
+      [name]: type === "checkbox" ? checked : value,
+    }));
+  }, []);
+
+  // Submit product to PO API
+  const handleAddProductToPO = async (e) => {
+    e.preventDefault();
+    setProductError("");
+    setIsProductSubmitting(true);
+    // Validate required fields
+    if (!productFields.product_id || !productFields.ordered_quantity || !productFields.unit_price || !productFields.branch_id) {
+      setProductError("Please fill in all required product fields.");
+      setIsProductSubmitting(false);
+      return;
+    }
+    // Prepare payload
+    const payload = {
+      purchase_order_id: current?.id || null,
+      product_id: Number(productFields.product_id),
+      ordered_quantity: Number(productFields.ordered_quantity),
+      unit_price: productFields.unit_price,
+      approved_price: productFields.approved_price || null,
+      discounted_price: productFields.discounted_price || null,
+      vat_amount: productFields.vat_amount || null,
+      withholding_amount: productFields.withholding_amount || null,
+      total_amount: productFields.total_amount || null,
+      branch_id: Number(productFields.branch_id),
+      received: productFields.received ? true : null,
+    };
+    try {
+      const res = await fetch("http://100.119.3.44:8090/items/purchase_order_products", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) throw new Error("Failed to add product to PO");
+      // Optionally clear fields or show success
+      setProductFields({
+        product_id: "",
+        ordered_quantity: "",
+        unit_price: "",
+        approved_price: "",
+        discounted_price: "",
+        vat_amount: "",
+        withholding_amount: "",
+        total_amount: "",
+        branch_id: "",
+        received: false,
+      });
+    } catch (err) {
+      setProductError("Error adding product to PO.");
+    } finally {
+      setIsProductSubmitting(false);
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <div className="fixed inset-0 z-50 flex items-start justify-center sm:items-center">
-        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm" />
-        <div className="z-50 grid w-full max-w-3xl gap-4 p-6 bg-background shadow-lg rounded-lg sm:rounded-xl border">
+      <div
+        ref={modalRef}
+        className="fixed inset-0 z-50 flex items-start justify-center sm:items-center"
+        style={{ transition: 'background 0.3s' }}
+      >
+        {/* Enhanced darker backdrop with fade-in animation */}
+        <div className="fixed inset-0 bg-black bg-opacity-70 backdrop-blur-sm transition-opacity duration-300 animate-fadeIn" />
+        {/* Modal with pop-out animation */}
+        <div className="z-50 grid w-full max-w-3xl gap-4 p-6 bg-background shadow-lg rounded-lg sm:rounded-xl border animate-popOut">
           <div className="flex flex-col space-y-1.5 text-center sm:text-left">
             <h2 className="text-lg font-semibold leading-none tracking-tight">
               {mode === "create" ? "Create Purchase Order" : "Edit Purchase Order"}
@@ -304,8 +409,80 @@ export function PurchaseOrderFormDialog({
               </button>
             </div>
           </form>
+
+          {/* Add Product to PO Section */}
+          <div className="mt-6 p-4 border rounded-lg bg-muted">
+            <h3 className="text-md font-semibold mb-2">Add Product to PO</h3>
+            {productError && <div className="text-red-500 text-sm mb-2">{productError}</div>}
+            <form onSubmit={handleAddProductToPO} className="grid gap-4 md:grid-cols-2">
+              <div>
+                <label>Product ID *</label>
+                <input name="product_id" type="number" value={productFields.product_id} onChange={handleProductFieldChange} required className="input" />
+              </div>
+              <div>
+                <label>Ordered Quantity *</label>
+                <input name="ordered_quantity" type="number" value={productFields.ordered_quantity} onChange={handleProductFieldChange} required className="input" />
+              </div>
+              <div>
+                <label>Unit Price *</label>
+                <input name="unit_price" type="number" value={productFields.unit_price} onChange={handleProductFieldChange} required className="input" />
+              </div>
+              <div>
+                <label>Approved Price</label>
+                <input name="approved_price" type="number" value={productFields.approved_price} onChange={handleProductFieldChange} className="input" />
+              </div>
+              <div>
+                <label>Discounted Price</label>
+                <input name="discounted_price" type="number" value={productFields.discounted_price} onChange={handleProductFieldChange} className="input" />
+              </div>
+              <div>
+                <label>VAT Amount</label>
+                <input name="vat_amount" type="number" value={productFields.vat_amount} onChange={handleProductFieldChange} className="input" />
+              </div>
+              <div>
+                <label>Withholding Amount</label>
+                <input name="withholding_amount" type="number" value={productFields.withholding_amount} onChange={handleProductFieldChange} className="input" />
+              </div>
+              <div>
+                <label>Total Amount</label>
+                <input name="total_amount" type="number" value={productFields.total_amount} onChange={handleProductFieldChange} className="input" />
+              </div>
+              <div>
+                <label>Branch ID *</label>
+                <input name="branch_id" type="number" value={productFields.branch_id} onChange={handleProductFieldChange} required className="input" />
+              </div>
+              <div className="flex items-center mt-2">
+                <label className="mr-2">Received</label>
+                <input name="received" type="checkbox" checked={productFields.received} onChange={handleProductFieldChange} />
+              </div>
+              <div className="col-span-2 mt-4">
+                <button type="submit" className="btn btn-primary" disabled={isProductSubmitting}>
+                  {isProductSubmitting ? "Adding..." : "Add Product"}
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       </div>
     </Dialog>
   );
 }
+
+// Add animation styles
+// Add these to your global CSS if not present:
+/*
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes popOut {
+  from { transform: scale(0.95); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+.animate-fadeIn {
+  animation: fadeIn 0.3s ease;
+}
+.animate-popOut {
+  animation: popOut 0.3s cubic-bezier(0.4,0,0.2,1);
+}
+*/

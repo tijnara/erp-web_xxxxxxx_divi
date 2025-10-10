@@ -70,11 +70,18 @@ export function PurchaseOrderView() {
   const [priceTypesLoading, setPriceTypesLoading] = useState(false);
   // store supplier selected from AsyncSelect (AsyncSelect is not a native <select> so it won't be in form.elements)
   const [selectedSupplier, setSelectedSupplier] = useState<{ id: number | string; name: string } | null>(null);
+  const [selectedBranch, setSelectedBranch] = useState<{ id: number | string; name: string } | null>(null);
   const [selectedProduct, setSelectedProduct] = useState<{ id: number | string; name: string; meta?: { price?: number } } | null>(null);
-  const [productError, setProductError] = useState<string>("");
-  const [productLoading, setProductLoading] = useState<boolean>(false);
+  const [orderedQuantity, setOrderedQuantity] = useState<number>(1);
   const [unitPrice, setUnitPrice] = useState<string>("");
+  const [approvedPrice, setApprovedPrice] = useState<string>("");
+  const [discountedPrice, setDiscountedPrice] = useState<string>("");
+  const [vatAmount, setVatAmount] = useState<string>("");
+  const [withholdingAmount, setWithholdingAmount] = useState<string>("");
+  const [totalAmount, setTotalAmount] = useState<string>("");
   const [visiblePOCount, setVisiblePOCount] = useState(10);
+  const [productError, setProductError] = useState("");
+  const [productLoading, setProductLoading] = useState(false);
   // call useSession to trigger session fetch; we don't need the value here yet
   useSession();
 
@@ -154,6 +161,17 @@ export function PurchaseOrderView() {
       setUnitPrice(String(selectedProduct.meta.price));
     }
   }, [selectedProduct]);
+
+  // Auto-calculate total_amount when orderedQuantity or unitPrice changes
+  useEffect(() => {
+    const qty = Number(orderedQuantity);
+    const price = Number(unitPrice);
+    if (!isNaN(qty) && !isNaN(price)) {
+      setTotalAmount((qty * price).toFixed(2));
+    } else {
+      setTotalAmount("");
+    }
+  }, [orderedQuantity, unitPrice]);
 
   // Filtered PO list
   const filteredPOs = purchaseOrders.filter(po => {
@@ -635,27 +653,35 @@ export function PurchaseOrderView() {
                   setProductLoading(false);
                   return;
                 }
-                const form = e.target as HTMLFormElement;
-                const branch_id = (form.branch_id as HTMLInputElement).value;
-                const ordered_quantity = (form.ordered_quantity as HTMLInputElement).value;
-                const unit_price_input = (form.unit_price as HTMLInputElement).value;
                 const product_id_val = selectedProduct ? String(selectedProduct.id) : "";
+                const branch_id = selectedBranch ? selectedBranch.id : "";
                 if (!product_id_val) {
                   setProductError("Please select a product.");
                   setProductLoading(false);
                   return;
                 }
+                if (!branch_id) {
+                  setProductError("Please select a branch.");
+                  setProductLoading(false);
+                  return;
+                }
                 try {
+                  const payload = {
+                    purchase_order_id: activePOId,
+                    product_id: parseInt(product_id_val),
+                    ordered_quantity: orderedQuantity,
+                    unit_price: unitPrice,
+                    approved_price: approvedPrice || null,
+                    discounted_price: discountedPrice || null,
+                    vat_amount: vatAmount || null,
+                    withholding_amount: withholdingAmount || null,
+                    total_amount: totalAmount,
+                    branch_id: branch_id ? parseInt(String(branch_id)) : null,
+                  };
                   const res = await fetch(`${API_BASE}/purchase_order_products`, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                      purchase_order_id: activePOId,
-                      product_id: parseInt(product_id_val),
-                      branch_id: branch_id ? parseInt(branch_id) : null,
-                      ordered_quantity: ordered_quantity ? parseInt(ordered_quantity) : 0,
-                      unit_price: unit_price_input || (selectedProduct?.meta?.price ?? null)
-                    })
+                    body: JSON.stringify(payload)
                   });
                   if (!res.ok) {
                     const text = await res.text();
@@ -672,6 +698,15 @@ export function PurchaseOrderView() {
                     // ignore
                   }
                   setShowProductModal(false);
+                  setSelectedBranch(null);
+                  setSelectedProduct(null);
+                  setOrderedQuantity(1);
+                  setUnitPrice("");
+                  setApprovedPrice("");
+                  setDiscountedPrice("");
+                  setVatAmount("");
+                  setWithholdingAmount("");
+                  setTotalAmount("");
                 } catch (err: any) {
                   setProductError(err?.message || "Failed to add product.");
                 } finally {
@@ -691,20 +726,34 @@ export function PurchaseOrderView() {
                   fetchUrl="http://100.119.3.44:8090/items/products"
                   initial={selectedProduct ? { id: selectedProduct.id, name: selectedProduct.name, meta: selectedProduct.meta } : null}
                   onChange={(opt) => {
-                    // map in price to meta for easier access
                     if (opt) {
                       const it = opt as any;
                       setSelectedProduct({ id: it.id, name: it.name, meta: { price: (it.meta && it.meta.price) ?? undefined } });
-                      // unitPrice will be synced by effect
-                    } else setSelectedProduct(null);
+                      setUnitPrice(it.meta?.price ? String(it.meta.price) : "");
+                    } else {
+                      setSelectedProduct(null);
+                      setUnitPrice("");
+                    }
                   }}
                   disabled={false}
                   mapOption={(item: any) => ({ id: item.product_id ?? item.id, name: String(item.product_name ?? item.short_description ?? item.product_code ?? item.name), meta: { price: item.price_per_unit ?? item.cost_per_unit ?? null } })}
                 />
-
-                <input type="number" name="branch_id" placeholder="Branch ID" className="p-2 border rounded w-full" />
-                <input type="number" name="ordered_quantity" placeholder="Quantity" defaultValue={1} className="p-2 border rounded w-full" />
-                <input type="number" step="0.01" name="unit_price" placeholder="Unit Price" value={unitPrice} onChange={e => setUnitPrice(e.target.value)} className="p-2 border rounded w-full" />
+                <AsyncSelect
+                  label="Branch"
+                  placeholder="Search Branch..."
+                  fetchUrl="http://100.119.3.44:8090/items/branches"
+                  mapOption={(branch: any) => ({ id: branch.branch_id, name: branch.branch_name })}
+                  onChange={(opt) => setSelectedBranch(opt as { id: number | string; name: string } | null)}
+                  disabled={false}
+                />
+                <input type="hidden" name="branch_id" value={selectedBranch ? String(selectedBranch.id) : ""} />
+                <input type="number" name="ordered_quantity" placeholder="Quantity" value={orderedQuantity} min={1} onChange={e => setOrderedQuantity(Number(e.target.value))} className="p-2 border rounded w-full" required />
+                <input type="number" step="0.01" name="unit_price" placeholder="Unit Price" value={unitPrice} onChange={e => setUnitPrice(e.target.value)} className="p-2 border rounded w-full" required />
+                <input type="number" step="0.01" name="approved_price" placeholder="Approved Price (optional)" value={approvedPrice} onChange={e => setApprovedPrice(e.target.value)} className="p-2 border rounded w-full" />
+                <input type="number" step="0.01" name="discounted_price" placeholder="Discounted Price (optional)" value={discountedPrice} onChange={e => setDiscountedPrice(e.target.value)} className="p-2 border rounded w-full" />
+                <input type="number" step="0.01" name="vat_amount" placeholder="VAT Amount (optional)" value={vatAmount} onChange={e => setVatAmount(e.target.value)} className="p-2 border rounded w-full" />
+                <input type="number" step="0.01" name="withholding_amount" placeholder="Withholding Amount (optional)" value={withholdingAmount} onChange={e => setWithholdingAmount(e.target.value)} className="p-2 border rounded w-full" />
+                <input type="number" step="0.01" name="total_amount" placeholder="Total Amount (auto)" value={totalAmount} onChange={e => setTotalAmount(e.target.value)} className="p-2 border rounded w-full" />
 
                 {productError && <div className="text-red-600">{productError}</div>}
                 <div className="flex justify-end gap-2">
