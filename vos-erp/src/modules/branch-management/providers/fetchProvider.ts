@@ -9,16 +9,30 @@ export function fetchProvider() {
         return response.json();
     }
 
+    function toAPI(data: any) {
+        return {
+            ...data,
+            state_province: String(data.state_province),
+            city: String(data.city),
+            brgy: String(data.brgy),
+            date_added: new Date().toISOString(),
+        };
+    }
+
     async function registerBranch(branch: any) {
+        const payload = toAPI(branch);
+        console.log("Payload sent to API:", JSON.stringify(payload));
         const response = await fetch(apiUrl, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
             },
-            body: JSON.stringify(branch),
+            body: JSON.stringify(payload),
         });
+        const responseText = await response.text();
+        console.log("API Response:", responseText);
         if (!response.ok) {
-            throw new Error("Failed to register branch");
+            throw new Error(`Failed to register branch: ${response.status} - ${responseText}`);
         }
     }
 

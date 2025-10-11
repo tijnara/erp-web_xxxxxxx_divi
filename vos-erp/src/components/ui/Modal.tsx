@@ -6,13 +6,13 @@ import { createPortal } from "react-dom";
 
 export function Modal({
                           open,
-                          onClose,
+                          onClose = () => console.warn("onClose is not provided or is not a function"),
                           title,
                           children,
                           width = "max-w-xl",
                       }: {
     open: boolean;
-    onClose: () => void;
+    onClose?: () => void;
     title?: string;
     children: React.ReactNode;
     width?: string; // Tailwind width class (e.g. max-w-xl)

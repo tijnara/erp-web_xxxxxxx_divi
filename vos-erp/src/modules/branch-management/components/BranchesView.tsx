@@ -72,6 +72,7 @@ export function BranchesView({ provider }: { provider: { fetchBranches: (page: n
         return <p>Loading branches...</p>;
     }
 
+    // @ts-ignore
     return (
         <div className="space-y-4">
             <div className="flex justify-between items-center">
@@ -168,8 +169,8 @@ export function BranchesView({ provider }: { provider: { fetchBranches: (page: n
                 open={open}
                 mode={mode}
                 initial={current}
-                onClose={() => { setOpen(false); setCurrent(null); setMode("create"); }}
-                onSubmit={handleRegisterBranch}
+                onCloseAction={() => { setOpen(false); setCurrent(null); setMode("create"); }}
+onSubmitAction={handleRegisterBranch}
             />
         </div>
     );

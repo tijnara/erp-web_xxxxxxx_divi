@@ -1,21 +1,50 @@
 // src/modules/branch-management/components/BranchFormDialog.tsx
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Modal } from "@/components/ui/Modal";
+import Select from "react-select";
+import provinces from "@/data/province.json";
+import cities from "@/data/city.json";
+import barangays from "@/data/barangay.json";
+import { API_BASE_URL } from "@/config/api";
+
+interface Province {
+  province_code: string;
+  province_name: string;
+}
+
+interface City {
+  city_code: string;
+  city_name: string;
+  province_code: string;
+}
+
+interface Barangay {
+  brgy_code: string;
+  brgy_name: string;
+  city_code: string;
+}
+
+interface User {
+  user_id: number;
+  user_fname: string;
+  user_mname: string;
+  user_lname: string;
+}
 
 export function BranchFormDialog({
   open,
   mode,
   initial,
-  onClose,
-  onSubmit,
+  onCloseAction,
+  onSubmitAction,
 }: {
   open: boolean;
   mode: "create" | "edit";
   initial?: Partial<any>;
-  onClose: () => void;
-  onSubmit: (dto: any) => Promise<void>;
+  onCloseAction: () => void;
+  onSubmitAction: (dto: any) => Promise<void>;
 }) {
   const [branch_name, setBranchName] = useState(initial?.branch_name ?? "");
   const [branch_description, setBranchDescription] = useState(initial?.branch_description ?? "");
@@ -30,6 +59,7 @@ export function BranchFormDialog({
   const [isReturn, setIsReturn] = useState(initial?.isReturn ?? 0);
   const [isActive, setIsActive] = useState(initial?.isActive ?? 1);
   const [submitting, setSubmitting] = useState(false);
+  const [users, setUsers] = useState<User[]>([]);
 
   useEffect(() => {
     if (!open) return;
@@ -45,35 +75,88 @@ export function BranchFormDialog({
     setIsMoving(initial?.isMoving ?? 0);
     setIsReturn(initial?.isReturn ?? 0);
     setIsActive(initial?.isActive ?? 1);
+
+    async function fetchUsers() {
+      try {
+        const response = await fetch(`${API_BASE_URL}/items/user`);
+        const data = await response.json();
+        setUsers(data.data);
+      } catch (error) {
+        console.error("Failed to fetch users:", error);
+      }
+    }
+    fetchUsers();
   }, [open, initial]);
 
   async function handleSubmit() {
     setSubmitting(true);
     try {
-      await onSubmit({
+      await onSubmitAction({
         branch_name,
         branch_description,
-        branch_head,
+        branch_head: Number(branch_head),
         branch_code,
-        state_province,
-        city,
-        brgy,
+        state_province, // now province_name
+        city,           // now city_name
+        brgy,           // now brgy_name
         phone_number,
         postal_code,
         isMoving,
         isReturn,
         isActive,
       });
-      onClose();
+      onCloseAction();
     } finally {
       setSubmitting(false);
     }
   }
 
+  const provinceOptions = (provinces as Province[]).map(province => ({
+    value: province.province_name, // use name as value
+    code: province.province_code,
+    label: province.province_name
+  }));
+
+  const cityOptions = useMemo(() => {
+    if (!state_province) return [];
+    // Find province_code by province_name
+    const selectedProvince = (provinces as Province[]).find(p => p.province_name === state_province);
+    if (!selectedProvince) return [];
+    return (cities as City[])
+      .filter(city => city.province_code === selectedProvince.province_code)
+      .map(city => ({ value: city.city_name, code: city.city_code, label: city.city_name }));
+  }, [state_province]);
+
+  const barangayOptions = useMemo(() => {
+    if (!city) return [];
+    // Find city_code by city_name
+    const selectedCity = (cities as City[]).find(c => c.city_name === city);
+    if (!selectedCity) return [];
+    return (barangays as Barangay[])
+      .filter(b => b.city_code === selectedCity.city_code)
+      .map(b => ({ value: b.brgy_name, code: b.brgy_code, label: b.brgy_name }));
+  }, [city]);
+
+  const userOptions = useMemo(() => {
+    return users.map(user => ({
+      value: user.user_id.toString(),
+      label: `${user.user_fname} ${user.user_mname} ${user.user_lname}`
+    }));
+  }, [users]);
+
+  // Reset city and barangay when province/city changes
+  useEffect(() => {
+    setCity("");
+    setBrgy("");
+  }, [state_province]);
+  useEffect(() => {
+    setBrgy("");
+  }, [city]);
+
   if (!open) return null;
 
   return (
-    <Modal open={open} onClose={onClose} title={mode === "create" ? "Register New Branch" : "Edit Branch"}>
+    <Modal open={open} onClose={onCloseAction} title={mode === "create" ? "Register New Branch" : "Edit Branch"}>
       <form
         className="space-y-4"
         onSubmit={e => {
@@ -83,11 +166,37 @@ export function BranchFormDialog({
       >
         <input type="text" placeholder="Branch Name" value={branch_name} onChange={e => setBranchName(e.target.value)} className="block w-full border rounded px-4 py-2" required />
         <input type="text" placeholder="Branch Description" value={branch_description} onChange={e => setBranchDescription(e.target.value)} className="block w-full border rounded px-4 py-2" />
-        <input type="text" placeholder="Branch Head" value={branch_head} onChange={e => setBranchHead(e.target.value)} className="block w-full border rounded px-4 py-2" />
+        <Select
+          options={userOptions}
+          value={userOptions.find(option => option.value === branch_head)}
+          onChange={selectedOption => setBranchHead(selectedOption?.value || "")}
+          placeholder="Select Branch Head"
+          className="block w-full border rounded px-4 py-2"
+        />
         <input type="text" placeholder="Branch Code" value={branch_code} onChange={e => setBranchCode(e.target.value)} className="block w-full border rounded px-4 py-2" required />
-        <input type="text" placeholder="State/Province" value={state_province} onChange={e => setStateProvince(e.target.value)} className="block w-full border rounded px-4 py-2" />
-        <input type="text" placeholder="City" value={city} onChange={e => setCity(e.target.value)} className="block w-full border rounded px-4 py-2" />
-        <input type="text" placeholder="Barangay" value={brgy} onChange={e => setBrgy(e.target.value)} className="block w-full border rounded px-4 py-2" />
+        <Select
+          options={provinceOptions}
+          value={provinceOptions.find(option => option.value === state_province)}
+          onChange={selectedOption => setStateProvince(selectedOption?.value || "")}
+          placeholder="Select State/Province"
+          className="block w-full border rounded px-4 py-2"
+        />
+        <Select
+          options={cityOptions}
+          value={cityOptions.find(option => option.value === city)}
+          onChange={selectedOption => setCity(selectedOption?.value || "")}
+          placeholder="Select City"
+          className="block w-full border rounded px-4 py-2"
+          isDisabled={!state_province}
+        />
+        <Select
+          options={barangayOptions}
+          value={barangayOptions.find(option => option.value === brgy)}
+          onChange={selectedOption => setBrgy(selectedOption?.value || "")}
+          placeholder="Select Barangay"
+          className="block w-full border rounded px-4 py-2"
+          isDisabled={!city}
+        />
         <input type="text" placeholder="Phone Number" value={phone_number} onChange={e => setPhoneNumber(e.target.value)} className="block w-full border rounded px-4 py-2" />
         <input type="text" placeholder="Postal Code" value={postal_code} onChange={e => setPostalCode(e.target.value)} className="block w-full border rounded px-4 py-2" />
         <div className="flex gap-4">
@@ -108,4 +217,3 @@ export function BranchFormDialog({
     </Modal>
   );
 }
-
