@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { AsyncSelect } from "@/components/ui/AsyncSelect";
 import { useSession } from "@/hooks/use-session";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
@@ -14,7 +14,7 @@ const PAYMENT_STATUS_COLOR: { [key: number]: string } = { 1: "status-unpaid", 2:
 
 // Type definitions
 interface Supplier {
-    supplier_id: number;
+    id: number;
     supplier_name: string;
 }
 interface PurchaseOrder {
@@ -52,9 +52,18 @@ interface PurchaseOrderReceiving {
     receipt_date: string;
     serial_no: string;
 }
+interface LineDiscount {
+    id: number;
+    line_discount: string;
+    percentage: string;
+}
+interface TaxRates {
+    VATRate: number;
+    WithholdingRate: number;
+}
+
 
 export function PurchaseOrderView() {
-    // default date for date inputs (YYYY-MM-DD)
     const todayDate = new Date().toISOString().slice(0, 10);
 
     // State
@@ -78,7 +87,7 @@ export function PurchaseOrderView() {
     const [priceTypesLoading, setPriceTypesLoading] = useState(false);
     const [selectedSupplier, setSelectedSupplier] = useState<{ id: number | string; name: string } | null>(null);
     const [selectedBranch, setSelectedBranch] = useState<{ id: number | string; name: string } | null>(null);
-    const [selectedProduct, setSelectedProduct] = useState<{ id: number | string; name: string; meta?: { price?: number } } | null>(null);
+    const [selectedProduct, setSelectedProduct] = useState<{ id: number | string; name: string; meta?: { price?: number, line_discount_id?: number | null } } | null>(null);
     const [orderedQuantity, setOrderedQuantity] = useState<number>(1);
     const [unitPrice, setUnitPrice] = useState<string>("");
     const [approvedPrice, setApprovedPrice] = useState<string>("");
@@ -90,10 +99,18 @@ export function PurchaseOrderView() {
     const [productError, setProductError] = useState("");
     const [productLoading, setProductLoading] = useState(false);
     const [branches, setBranches] = useState<any[]>([]);
-
-    // New state for Add Product modal
     const [productFetchUrl, setProductFetchUrl] = useState<string | null>(null);
     const [productUrlLoading, setProductUrlLoading] = useState<boolean>(false);
+    const [lineDiscounts, setLineDiscounts] = useState<LineDiscount[]>([]);
+    const [supplierProductsMap, setSupplierProductsMap] = useState<Map<number, any>>(new Map());
+    const [showProductDetailsModal, setShowProductDetailsModal] = useState(false);
+    const [selectedPOProduct, setSelectedPOProduct] = useState<PurchaseOrderProduct | null>(null);
+    const [productNameMap, setProductNameMap] = useState<Map<number, string>>(new Map());
+    const [taxRates, setTaxRates] = useState<TaxRates>({ VATRate: 0, WithholdingRate: 0 });
+    const [paymentTerms, setPaymentTerms] = useState<{id: number, payment_name: string, payment_days: number|null}[]>([]);
+    const [paymentTermsLoading, setPaymentTermsLoading] = useState(false);
+    const [selectedPaymentTermId, setSelectedPaymentTermId] = useState<number | string>("");
+
 
     useSession();
 
@@ -105,6 +122,28 @@ export function PurchaseOrderView() {
         fetch(`${API_BASE}/suppliers`).then(res => res.json()).then(data => setSuppliers(data.data || []));
         fetch(`${API_BASE}/receiving_type`).then(res => res.json()).then(data => setReceivingTypes(data.data || []));
         fetch(`${API_BASE}/branches`).then(res => res.json()).then(data => setBranches(data.data || []));
+        fetch(`${API_BASE}/line_discount?limit=-1`).then(res => res.json()).then(data => setLineDiscounts(data.data || []));
+
+        // Fetch tax rates
+        fetch(`${API_BASE}/tax_rates`).then(res => res.json()).then(data => {
+            if (data.data && data.data.length > 0) {
+                setTaxRates({
+                    VATRate: parseFloat(data.data[0].VATRate) || 0,
+                    WithholdingRate: parseFloat(data.data[0].WithholdingRate) || 0,
+                });
+            }
+        });
+
+        // Fetch all products to create a name map
+        fetch(`${API_BASE}/products?limit=-1&fields=product_id,product_name`)
+            .then(res => res.json())
+            .then(data => {
+                const newMap = new Map<number, string>();
+                (data.data || []).forEach((product: any) => {
+                    newMap.set(product.product_id, product.product_name);
+                });
+                setProductNameMap(newMap);
+            });
     }, []);
 
     // PO details derived from state
@@ -112,8 +151,7 @@ export function PurchaseOrderView() {
     const productsForPO = products.filter(p => p.purchase_order_id === activePOId);
     const receivingForPO = receiving.filter(r => r.purchase_order_id === activePOId);
 
-    // **NEW**: This effect runs when the "Add Product" modal is opened.
-    // It fetches the allowed products for the active PO's supplier.
+    // This effect runs when the "Add Product" modal is opened.
     useEffect(() => {
         if (showProductModal && activePO) {
             const supplierId = activePO.supplier_id;
@@ -122,33 +160,34 @@ export function PurchaseOrderView() {
             setProductUrlLoading(true);
             setProductFetchUrl(null);
 
-            // 1. Fetch the list of products associated with the supplier
             fetch(`${API_BASE}/supplier_discount_products?filter[supplier_id]=${supplierId}&limit=-1`)
                 .then(res => res.json())
                 .then(discountData => {
-                    const productIds = (discountData.data || []).map((item: any) => item.product_id);
+                    const productsData = discountData.data || [];
+                    const newMap = new Map<number, any>();
+                    productsData.forEach((item: any) => newMap.set(item.product_id, item));
+                    setSupplierProductsMap(newMap);
+
+                    const productIds = Array.from(newMap.keys());
 
                     if (productIds.length > 0) {
-                        // 2. Construct the new URL to fetch only those products by their IDs
                         const url = `${API_BASE}/products?filter[product_id][_in]=${productIds.join(",")}`;
                         setProductFetchUrl(url);
                     } else {
-                        // If supplier has no products, set URL to fetch nothing to avoid errors
                         setProductFetchUrl(`${API_BASE}/products?filter[product_id][_in]=-1`);
                     }
                 })
                 .catch(err => {
                     console.error("Failed to fetch supplier products:", err);
-                    // Fallback to prevent search from working
                     setProductFetchUrl(`${API_BASE}/products?filter[product_id][_in]=-1`);
                 })
                 .finally(() => {
                     setProductUrlLoading(false);
                 });
         } else {
-            // Reset when modal closes
             setProductFetchUrl(null);
             setProductUrlLoading(false);
+            setSupplierProductsMap(new Map());
         }
     }, [showProductModal, activePO]);
 
@@ -180,6 +219,25 @@ export function PurchaseOrderView() {
         return () => { alive = false; };
     }, [showPOModal]);
 
+    // Fetch payment terms when Create PO modal opens
+    useEffect(() => {
+        if (!showPOModal) return;
+        let alive = true;
+        (async () => {
+            setPaymentTermsLoading(true);
+            try {
+                const res = await fetch("http://100.119.3.44:8090/items/payment_terms");
+                const json = await res.json();
+                if (alive) setPaymentTerms(json.data || []);
+            } catch (err) {
+                if (alive) setPaymentTerms([]);
+            } finally {
+                if (alive) setPaymentTermsLoading(false);
+            }
+        })();
+        return () => { alive = false; };
+    }, [showPOModal]);
+
     // Handle PO number generation
     useEffect(() => {
         if (showPOModal) {
@@ -198,43 +256,64 @@ export function PurchaseOrderView() {
             setSelectedSupplier(null);
             setSelectedProduct(null);
             setUnitPrice("");
+            setSelectedPaymentTermId(""); // Reset payment term on modal close
         }
     }, [showPOModal, purchaseOrders]);
 
-    // Sync unitPrice when selectedProduct changes
-    useEffect(() => {
-        if (selectedProduct && selectedProduct.meta?.price != null) {
-            setUnitPrice(String(selectedProduct.meta.price));
+    // Calculations for Add Product Modal
+    const calculateValues = useCallback(() => {
+        const price = parseFloat(unitPrice);
+        if (isNaN(price)) {
+            setDiscountedPrice("");
+            setVatAmount("");
+            setWithholdingAmount("");
+            return;
         }
-    }, [selectedProduct]);
+
+        const discount = lineDiscounts.find(ld => ld.id === selectedProduct?.meta?.line_discount_id);
+        const discountPercentage = discount ? parseFloat(discount.percentage) / 100 : 0;
+        const finalDiscountedPrice = price * (1 - discountPercentage);
+        setDiscountedPrice(finalDiscountedPrice.toFixed(2));
+
+        const calculatedVat = price * taxRates.VATRate;
+        setVatAmount(calculatedVat.toFixed(2));
+
+        const calculatedWithholding = price * taxRates.WithholdingRate;
+        setWithholdingAmount(calculatedWithholding.toFixed(2));
+
+    }, [unitPrice, selectedProduct, lineDiscounts, taxRates]);
+
+    useEffect(() => {
+        calculateValues();
+    }, [calculateValues]);
 
     // Auto-calculate total_amount
     useEffect(() => {
         const qty = Number(orderedQuantity);
-        const price = Number(unitPrice);
+        const price = Number(discountedPrice) > 0 ? Number(discountedPrice) : Number(unitPrice);
         if (!isNaN(qty) && !isNaN(price)) {
             setTotalAmount((qty * price).toFixed(2));
         } else {
             setTotalAmount("");
         }
-    }, [orderedQuantity, unitPrice]);
+    }, [orderedQuantity, unitPrice, discountedPrice]);
+
 
     // Filtered PO list
     const filteredPOs = purchaseOrders.filter(po => {
         return po.purchase_order_no.toLowerCase().includes(searchTerm.toLowerCase());
     });
 
-    // Helper to get names
     const getSupplierName = (id: number) => {
-        const s = suppliers.find(s => s.supplier_id === id);
-        return s ? s.supplier_name : id;
-    };
-    const getBranchName = (id: number) => {
-        const branch = branches.find(b => b.id === id);
-        return branch ? branch.branch_name : id;
+        const supplier = suppliers.find(s => s.id === id);
+        return supplier ? supplier.supplier_name : "Unknown Supplier";
     };
 
-    // Handlers
+    const getBranchName = (id: number) => {
+        const branch = branches.find(b => b.id === id);
+        return branch ? branch.branch_name : "Unknown Branch";
+    };
+
     const handlePOClick = async (poId: number) => {
         setActivePOId(poId);
         setTab("products");
@@ -242,10 +321,11 @@ export function PurchaseOrderView() {
         try {
             const res = await fetch(`${API_BASE}/purchase_order_products?filter[purchase_order_id]=${poId}`);
             const json = await res.json();
-            setProducts(json.data || []);
-        } catch {
-            setProducts([]);
-        }
+            setProducts(prevProducts => {
+                const otherPOProducts = prevProducts.filter(p => p.purchase_order_id !== poId);
+                return [...otherPOProducts, ...(json.data || [])];
+            });
+        } catch {}
     };
 
     const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -375,7 +455,6 @@ export function PurchaseOrderView() {
                                                 <th className="px-6 py-3">Branch/Warehouse</th>
                                                 <th className="px-6 py-3 text-right">Qty</th>
                                                 <th className="px-6 py-3 text-right">Unit Price</th>
-                                                <th className="px-6 py-3 text-right">Approved Price</th>
                                                 <th className="px-6 py-3 text-right">Discounted Price</th>
                                                 <th className="px-6 py-3 text-right">VAT Amount</th>
                                                 <th className="px-6 py-3 text-right">Withholding Amount</th>
@@ -385,17 +464,23 @@ export function PurchaseOrderView() {
                                             </thead>
                                             <tbody>
                                             {productsForPO.length > 0 ? productsForPO.map(p => (
-                                                <tr key={p.purchase_order_product_id} className="bg-white border-b hover:bg-gray-50">
+                                                <tr
+                                                    key={p.purchase_order_product_id}
+                                                    className="bg-white border-b hover:bg-gray-50 cursor-pointer"
+                                                    onClick={() => {
+                                                        setSelectedPOProduct(p);
+                                                        setShowProductDetailsModal(true);
+                                                    }}
+                                                >
                                                     <td className="px-6 py-4 font-mono text-xs">{p.product_id}</td>
-                                                    <td className="px-6 py-4 font-medium text-gray-900">Product {p.product_id}</td>
+                                                    <td className="px-6 py-4 font-medium text-gray-900">{productNameMap.get(p.product_id) || `Product ${p.product_id}`}</td>
                                                     <td className="px-6 py-4">{getBranchName(p.branch_id)}</td>
                                                     <td className="px-6 py-4 text-right">{p.ordered_quantity}</td>
                                                     <td className="px-6 py-4 text-right">₱{parseFloat(p.unit_price).toFixed(2)}</td>
-                                                    <td className="px-6 py-4 text-right">{p.approved_price !== null ? `₱${parseFloat(p.approved_price).toFixed(2)}` : '-'}</td>
                                                     <td className="px-6 py-4 text-right">{p.discounted_price !== null ? `₱${parseFloat(p.discounted_price).toFixed(2)}` : '-'}</td>
                                                     <td className="px-6 py-4 text-right">{p.vat_amount !== null ? `₱${parseFloat(p.vat_amount).toFixed(2)}` : '-'}</td>
                                                     <td className="px-6 py-4 text-right">{p.withholding_amount !== null ? `₱${parseFloat(p.withholding_amount).toFixed(2)}` : '-'}</td>
-                                                    <td className="px-6 py-4 text-right">₱{parseFloat(p.total_amount).toFixed(2)}</td>
+                                                    <td className="px-6 py-4 text-right">₱{p.total_amount ? parseFloat(p.total_amount).toFixed(2) : '0.00'}</td>
                                                     <td className="px-6 py-4">{p.received !== null ? String(p.received) : '-'}</td>
                                                 </tr>
                                             )) : (
@@ -426,7 +511,7 @@ export function PurchaseOrderView() {
                                                 <tr key={r.purchase_order_product_id} className="bg-white border-b hover:bg-gray-50">
                                                     <td className="px-6 py-4">{r.receipt_date}</td>
                                                     <td className="px-6 py-4 font-medium text-gray-800">{r.receipt_no}</td>
-                                                    <td className="px-6 py-4">Product {r.product_id}</td>
+                                                    <td className="px-6 py-4">{productNameMap.get(r.product_id) || `Product ${r.product_id}`}</td>
                                                     <td className="px-6 py-4">{getBranchName(r.branch_id)}</td>
                                                     <td className="px-6 py-4 text-right font-semibold">{r.received_quantity}</td>
                                                     <td className="px-6 py-4 text-center">
@@ -462,6 +547,7 @@ export function PurchaseOrderView() {
                     </div>
                 </div>
             )}
+
             {/* Create PO Modal */}
             <Dialog open={showPOModal} onOpenChange={setShowPOModal}>
                 <DialogContent className="max-w-2xl w-full">
@@ -480,13 +566,13 @@ export function PurchaseOrderView() {
                                 setPoLoading(false);
                                 return;
                             }
-                            const receiving_type = (form.receiving_type as HTMLSelectElement).value;
-                            const payment_type = (form.payment_type as HTMLSelectElement).value;
-                            const price_type = (form.price_type as HTMLSelectElement).value;
-                            const date_encoded = (form.date_encoded as HTMLInputElement).value;
-                            const date = (form.date as HTMLInputElement).value;
-                            const reference = (form.reference as HTMLInputElement).value;
-                            const remark = (form.remark as HTMLTextAreaElement).value;
+                            const receiving_type = (form.elements.namedItem("receiving_type") as HTMLSelectElement).value;
+                            const payment_term = (form.elements.namedItem("payment_term") as HTMLSelectElement).value;
+                            const price_type = (form.elements.namedItem("price_type") as HTMLSelectElement).value;
+                            const date_encoded = todayDate;
+                            const date = (form.elements.namedItem("date") as HTMLInputElement).value;
+                            const reference = (form.elements.namedItem("reference") as HTMLInputElement).value;
+                            const remark = (form.elements.namedItem("remark") as HTMLTextAreaElement).value;
                             const now = new Date();
                             const pad = (n: number) => String(n).padStart(2, "0");
                             const timeNow = `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
@@ -496,7 +582,7 @@ export function PurchaseOrderView() {
                                     purchase_order_no: po_no,
                                     supplier_id: Number(supplier_id_val),
                                     receiving_type,
-                                    payment_type,
+                                    payment_term,
                                     price_type,
                                     date_encoded,
                                     time: timeNow,
@@ -514,9 +600,7 @@ export function PurchaseOrderView() {
                                 });
                                 if (!res.ok) {
                                     const errorText = await res.text();
-                                    setPoError(errorText || `HTTP ${res.status}`);
-                                    setPoLoading(false);
-                                    return;
+                                    throw new Error(errorText || `HTTP ${res.status}`);
                                 }
                                 const listRes = await fetch(`${API_BASE}/purchase_order`);
                                 const listJson = await listRes.json();
@@ -543,20 +627,38 @@ export function PurchaseOrderView() {
                                 />
                             </div>
                             <div>
-                                <label htmlFor="supplier_id" className="block text-sm font-medium text-gray-700">Supplier</label>
+                                {/* This is the corrected searchable dropdown implementation */}
                                 <AsyncSelect
                                     label="Supplier"
-                                    placeholder="Enter Supplier..."
+                                    placeholder="Search for a supplier..."
                                     fetchUrl="http://100.119.3.44:8090/items/suppliers"
                                     initial={selectedSupplier ? { id: selectedSupplier.id, name: selectedSupplier.name } : null}
-                                    onChange={(opt) => setSelectedSupplier(opt as { id: number | string; name: string } | null)}
+                                    onChange={(opt) => {
+                                        const selectedOpt = opt as { id: number | string; name: string; meta?: { payment_terms?: string } } | null;
+                                        setSelectedSupplier(selectedOpt);
+
+                                        if (selectedOpt && selectedOpt.meta?.payment_terms && paymentTerms.length > 0) {
+                                            const termNameFromSupplier = selectedOpt.meta.payment_terms;
+                                            const matchingTerm = paymentTerms.find(
+                                                (term) => term.payment_name.toLowerCase() === termNameFromSupplier.toLowerCase()
+                                            );
+                                            setSelectedPaymentTermId(matchingTerm ? matchingTerm.id : "");
+                                        } else {
+                                            setSelectedPaymentTermId("");
+                                        }
+                                    }}
                                     disabled={false}
                                     mapOption={(item: unknown) => {
                                         const it = item as Record<string, unknown>;
-                                        return { id: (it.supplier_id as number) ?? Number(it.id ?? 0), name: String(it.supplier_name ?? it.name ?? it.supplier_name) };
+                                        return {
+                                            id: (it.id as number) ?? Number(it.supplier_id ?? 0),
+                                            name: String(it.supplier_name ?? it.name ?? ""),
+                                            meta: {
+                                                payment_terms: it.payment_terms as string | undefined,
+                                            },
+                                        };
                                     }}
                                 />
-                                <input type="hidden" name="supplier_id" value={selectedSupplier ? String(selectedSupplier.id) : ""} />
                             </div>
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -567,6 +669,7 @@ export function PurchaseOrderView() {
                                     name="date_encoded"
                                     id="date_encoded"
                                     defaultValue={todayDate}
+                                    readOnly
                                     className="mt-1 block w-full p-2 border rounded-md bg-gray-50 text-gray-900"
                                 />
                             </div>
@@ -588,28 +691,32 @@ export function PurchaseOrderView() {
                                     <select
                                         name="receiving_type"
                                         id="receiving_type"
-                                        defaultValue=""
-                                        className="block w-full p-2 border rounded-md bg-gray-50 text-gray-900"
+                                        value="RECEIVE FROM PO"
+                                        readOnly
+                                        disabled
+                                        className="block w-full p-2 border rounded-md bg-gray-50 text-gray-900 cursor-not-allowed"
                                     >
-                                        <option value="" disabled>Select receiving type</option>
-                                        {receivingTypes.map(type => (
-                                            <option key={type.id} value={type.id}>{type.description}</option>
-                                        ))}
+                                        <option value="RECEIVE FROM PO">RECEIVE FROM PO</option>
                                     </select>
                                 </div>
                             </div>
                             <div>
-                                <label htmlFor="payment_type" className="block text-sm font-medium text-gray-700">Payment Type</label>
+                                <label htmlFor="payment_term" className="block text-sm font-medium text-gray-700">Payment Term</label>
                                 <div className="mt-1">
                                     <select
-                                        name="payment_type"
-                                        id="payment_type"
-                                        defaultValue=""
+                                        name="payment_term"
+                                        id="payment_term"
+                                        value={selectedPaymentTermId}
+                                        onChange={(e) => setSelectedPaymentTermId(e.target.value)}
                                         className="block w-full p-2 border rounded-md bg-gray-50 text-gray-900"
+                                        disabled={paymentTermsLoading}
                                     >
-                                        <option value="" disabled>Select payment type</option>
-                                        <option value="1">Cash</option>
-                                        <option value="2">Credit</option>
+                                        <option value="" disabled>{paymentTermsLoading ? "Loading payment terms..." : "Select payment term"}</option>
+                                        {paymentTerms.map(term => (
+                                            <option key={term.id} value={term.id}>
+                                                {term.payment_name}{term.payment_days !== null ? ` (${term.payment_days} days)` : ""}
+                                            </option>
+                                        ))}
                                     </select>
                                 </div>
                             </div>
@@ -630,7 +737,7 @@ export function PurchaseOrderView() {
                                             <>
                                                 <option value="" disabled>Select price type</option>
                                                 {priceTypes.map(type => (
-                                                    <option key={type.id} value={type.id}>{type.name}</option>
+                                                    <option key={String(type.id)} value={String(type.id)}>{String(type.name)}</option>
                                                 ))}
                                             </>
                                         )}
@@ -647,7 +754,7 @@ export function PurchaseOrderView() {
                                 />
                             </div>
                         </div>
-                        <div className="grid grid-cols-1 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
                                 <label htmlFor="remark" className="block text-sm font-medium text-gray-700">Remarks</label>
                                 <textarea
@@ -711,6 +818,16 @@ export function PurchaseOrderView() {
                                 setProductLoading(false);
                                 return;
                             }
+
+                            const duplicateProduct = products.some(
+                                (p) => p.purchase_order_id === activePOId && p.product_id === parseInt(product_id_val)
+                            );
+                            if (duplicateProduct) {
+                                setProductError("This product is already added to the purchase order.");
+                                setProductLoading(false);
+                                return;
+                            }
+
                             try {
                                 const payload = {
                                     purchase_order_id: activePOId,
@@ -759,22 +876,30 @@ export function PurchaseOrderView() {
                             <AsyncSelect
                                 label="Product"
                                 placeholder={productUrlLoading ? "Loading products for supplier..." : "Search products..."}
-                                // **MODIFIED**: Use the dynamic URL from state
-                                fetchUrl={productFetchUrl ?? undefined}
+                                fetchUrl={productFetchUrl ?? ''}
                                 initial={selectedProduct ? { id: selectedProduct.id, name: selectedProduct.name, meta: selectedProduct.meta } : null}
                                 onChange={(opt) => {
                                     if (opt) {
                                         const it = opt as any;
-                                        setSelectedProduct({ id: it.id, name: it.name, meta: { price: (it.meta && it.meta.price) ?? undefined } });
+                                        setSelectedProduct({ id: it.id, name: it.name, meta: it.meta });
                                         setUnitPrice(it.meta?.price ? String(it.meta.price) : "");
                                     } else {
                                         setSelectedProduct(null);
                                         setUnitPrice("");
                                     }
                                 }}
-                                // **MODIFIED**: Disable the select while the URL is being prepared
                                 disabled={productUrlLoading || !productFetchUrl}
-                                mapOption={(item: any) => ({ id: item.product_id ?? item.id, name: String(item.product_name ?? item.short_description ?? item.product_code ?? item.name), meta: { price: item.price_per_unit ?? item.cost_per_unit ?? null } })}
+                                mapOption={(item: any) => {
+                                    const supplierProductInfo = supplierProductsMap.get(item.product_id ?? item.id);
+                                    return {
+                                        id: item.product_id ?? item.id,
+                                        name: String(item.product_name ?? item.short_description ?? item.product_code ?? item.name),
+                                        meta: {
+                                            price: item.price_per_unit ?? item.cost_per_unit ?? null,
+                                            line_discount_id: supplierProductInfo?.line_discount_id ?? null,
+                                        }
+                                    };
+                                }}
                             />
                             <AsyncSelect
                                 label="Branch"
@@ -784,14 +909,34 @@ export function PurchaseOrderView() {
                                 onChange={(opt) => setSelectedBranch(opt as { id: number | string; name: string } | null)}
                                 disabled={false}
                             />
-                            <input type="hidden" name="branch_id" value={selectedBranch ? String(selectedBranch.id) : ""} />
-                            <input type="number" name="ordered_quantity" placeholder="Quantity" value={orderedQuantity} min={1} onChange={e => setOrderedQuantity(Number(e.target.value))} className="p-2 border rounded w-full" required />
-                            <input type="number" step="0.01" name="unit_price" placeholder="Unit Price" value={unitPrice} onChange={e => setUnitPrice(e.target.value)} className="p-2 border rounded w-full" required />
-                            <input type="number" step="0.01" name="approved_price" placeholder="Approved Price (optional)" value={approvedPrice} onChange={e => setApprovedPrice(e.target.value)} className="p-2 border rounded w-full" />
-                            <input type="number" step="0.01" name="discounted_price" placeholder="Discounted Price (optional)" value={discountedPrice} onChange={e => setDiscountedPrice(e.target.value)} className="p-2 border rounded w-full" />
-                            <input type="number" step="0.01" name="vat_amount" placeholder="VAT Amount (optional)" value={vatAmount} onChange={e => setVatAmount(e.target.value)} className="p-2 border rounded w-full" />
-                            <input type="number" step="0.01" name="withholding_amount" placeholder="Withholding Amount (optional)" value={withholdingAmount} onChange={e => setWithholdingAmount(e.target.value)} className="p-2 border rounded w-full" />
-                            <input type="number" step="0.01" name="total_amount" placeholder="Total Amount (auto)" value={totalAmount} onChange={e => setTotalAmount(e.target.value)} className="p-2 border rounded w-full" />
+                            <div>
+                                <label htmlFor="ordered_quantity" className="block text-sm font-medium text-gray-700 mb-1">Quantity</label>
+                                <input id="ordered_quantity" type="number" name="ordered_quantity" value={orderedQuantity} min={1} onChange={e => setOrderedQuantity(Number(e.target.value))} className="p-2 border rounded w-full" required />
+                            </div>
+                            <div>
+                                <label htmlFor="unit_price" className="block text-sm font-medium text-gray-700 mb-1">Unit Price</label>
+                                <input id="unit_price" type="number" step="0.01" name="unit_price" value={unitPrice} onChange={e => setUnitPrice(e.target.value)} className="p-2 border rounded w-full" required />
+                            </div>
+                            <div>
+                                <label htmlFor="approved_price" className="block text-sm font-medium text-gray-700 mb-1">Approved Price (optional)</label>
+                                <input id="approved_price" type="number" step="0.01" name="approved_price" value={approvedPrice} onChange={e => setApprovedPrice(e.target.value)} className="p-2 border rounded w-full" />
+                            </div>
+                            <div>
+                                <label htmlFor="discounted_price" className="block text-sm font-medium text-gray-700 mb-1">Discounted Price</label>
+                                <input id="discounted_price" type="number" step="0.01" name="discounted_price" value={discountedPrice} className="p-2 border rounded w-full bg-gray-100" readOnly />
+                            </div>
+                            <div>
+                                <label htmlFor="vat_amount" className="block text-sm font-medium text-gray-700 mb-1">VAT Amount</label>
+                                <input id="vat_amount" type="number" step="0.01" name="vat_amount" value={vatAmount} className="p-2 border rounded w-full bg-gray-100" readOnly />
+                            </div>
+                            <div>
+                                <label htmlFor="withholding_amount" className="block text-sm font-medium text-gray-700 mb-1">Withholding Amount</label>
+                                <input id="withholding_amount" type="number" step="0.01" name="withholding_amount" value={withholdingAmount} className="p-2 border rounded w-full bg-gray-100" readOnly />
+                            </div>
+                            <div>
+                                <label htmlFor="total_amount" className="block text-sm font-medium text-gray-700 mb-1">Total Amount</label>
+                                <input id="total_amount" type="number" step="0.01" name="total_amount" value={totalAmount} className="p-2 border rounded w-full bg-gray-100" readOnly />
+                            </div>
                             {productError && <div className="text-red-600">{productError}</div>}
                             <div className="flex justify-end gap-2">
                                 <button type="button" className="bg-gray-200 text-gray-800 py-2 px-4 rounded" onClick={() => { setShowProductModal(false); setSelectedProduct(null); setUnitPrice(""); }}>Cancel</button>
@@ -804,64 +949,204 @@ export function PurchaseOrderView() {
                 </DialogContent>
             </Dialog>
 
-            {/* Receive Stock Modal */}
-            {showReceivingModal && (
-                <div className="modal-backdrop" style={{ display: "flex" }}>
-                    <div className="modal bg-white w-11/12 md:max-w-lg mx-auto rounded-lg shadow-xl p-6">
-                        <form
-                            onSubmit={async e => {
-                                e.preventDefault();
-                                const form = e.target as HTMLFormElement;
-                                const product_id = (form.product_id as HTMLInputElement).value;
-                                const branch_id = (form.branch_id as HTMLInputElement).value;
-                                const received_quantity = (form.received_quantity as HTMLInputElement).value;
-                                const receipt_no = (form.receipt_no as HTMLInputElement).value;
-                                const receipt_date = (form.receipt_date as HTMLInputElement).value;
-                                const serial_no = (form.serial_no as HTMLTextAreaElement).value;
-                                try {
-                                    await fetch(`${API_BASE}/purchase_order_receiving`, {
-                                        method: "POST",
-                                        headers: { "Content-Type": "application/json" },
-                                        body: JSON.stringify({
-                                            purchase_order_id: activePOId,
-                                            product_id: parseInt(product_id),
-                                            branch_id: parseInt(branch_id),
-                                            received_quantity: parseInt(received_quantity),
-                                            receipt_no,
-                                            receipt_date,
-                                            serial_no
-                                        })
-                                    });
-                                    const res = await fetch(`${API_BASE}/purchase_order_receiving`);
-                                    const json = await res.json();
-                                    setReceiving(json.data || []);
-                                    setShowReceivingModal(false);
-                                } catch (err) {
-                                    setShowReceivingModal(false);
-                                }
+            <Dialog open={showProductDetailsModal} onOpenChange={setShowProductDetailsModal}>
+                <DialogContent className="max-w-lg w-full">
+                    <DialogTitle>Product Details</DialogTitle>
+                    {selectedPOProduct && (
+                        <ProductDetailsModalContent
+                            key={selectedPOProduct.purchase_order_product_id}
+                            product={selectedPOProduct}
+                            getBranchName={getBranchName}
+                            productNameMap={productNameMap}
+                            onUpdate={(updatedData) => {
+                                const updatedProducts = products.map(p =>
+                                    p.purchase_order_product_id === selectedPOProduct.purchase_order_product_id
+                                        ? { ...p, ...updatedData }
+                                        : p
+                                );
+                                setProducts(updatedProducts);
+                                setShowProductDetailsModal(false);
                             }}
-                        >
-                            <div className="flex justify-between items-center mb-4">
-                                <h2 className="text-xl font-bold text-gray-800">Receive Stock for PO</h2>
-                                <button type="button" className="modal-close-btn text-gray-500 hover:text-gray-800 text-3xl" onClick={() => setShowReceivingModal(false)}>&times;</button>
+                            onClose={() => setShowProductDetailsModal(false)}
+                        />
+                    )}
+                </DialogContent>
+            </Dialog>
+
+            {/* Receive Stock Modal */}
+            <div style={{display: showReceivingModal ? 'flex': 'none'}} className="modal-backdrop">
+                <div className="modal bg-white w-11/12 md:max-w-lg mx-auto rounded-lg shadow-xl p-6">
+                    <form
+                        onSubmit={async e => {
+                            e.preventDefault();
+                            const form = e.target as HTMLFormElement;
+                            const product_id = (form.elements.namedItem('product_id') as HTMLInputElement).value;
+                            const branch_id = (form.elements.namedItem('branch_id') as HTMLInputElement).value;
+                            const received_quantity = (form.elements.namedItem('received_quantity') as HTMLInputElement).value;
+                            const receipt_no = (form.elements.namedItem('receipt_no') as HTMLInputElement).value;
+                            const receipt_date = (form.elements.namedItem('receipt_date') as HTMLInputElement).value;
+                            const serial_no = (form.elements.namedItem('serial_no') as HTMLTextAreaElement).value;
+                            try {
+                                await fetch(`${API_BASE}/purchase_order_receiving`, {
+                                    method: "POST",
+                                    headers: { "Content-Type": "application/json" },
+                                    body: JSON.stringify({
+                                        purchase_order_id: activePOId,
+                                        product_id: parseInt(product_id),
+                                        branch_id: parseInt(branch_id),
+                                        received_quantity: parseInt(received_quantity),
+                                        receipt_no,
+                                        receipt_date,
+                                        serial_no
+                                    })
+                                });
+                                const res = await fetch(`${API_BASE}/purchase_order_receiving`);
+                                const json = await res.json();
+                                setReceiving(json.data || []);
+                                setShowReceivingModal(false);
+                            } catch (err) {
+                                setShowReceivingModal(false);
+                            }
+                        }}
+                    >
+                        <div className="flex justify-between items-center mb-4">
+                            <h2 className="text-xl font-bold text-gray-800">Receive Stock for PO</h2>
+                            <button type="button" className="modal-close-btn text-gray-500 hover:text-gray-800 text-3xl" onClick={() => setShowReceivingModal(false)}>&times;</button>
+                        </div>
+                        <div className="space-y-4">
+                            <input type="number" name="product_id" placeholder="Product ID" className="p-2 border rounded w-full" required />
+                            <input type="number" name="branch_id" placeholder="Branch ID" className="p-2 border rounded w-full" required />
+                            <input type="number" name="received_quantity" placeholder="Received Quantity" className="p-2 border rounded w-full" required />
+                            <input type="text" name="receipt_no" placeholder="Receipt No." className="p-2 border rounded w-full" required />
+                            <input type="date" name="receipt_date" className="p-2 border rounded w-full" defaultValue={new Date().toISOString().slice(0,10)} required />
+                            <textarea name="serial_no" placeholder="Serial Numbers (comma separated)" className="p-2 border rounded w-full"></textarea>
+                            <div className="flex justify-end gap-2">
+                                <button type="button" className="bg-gray-200 text-gray-800 py-2 px-4 rounded" onClick={() => setShowReceivingModal(false)}>Cancel</button>
+                                <button type="submit" className="bg-green-600 text-white py-2 px-4 rounded hover:bg-green-700">Receive Stock</button>
                             </div>
-                            <div className="space-y-4">
-                                <input type="number" name="product_id" placeholder="Product ID" className="p-2 border rounded w-full" required />
-                                <input type="number" name="branch_id" placeholder="Branch ID" className="p-2 border rounded w-full" required />
-                                <input type="number" name="received_quantity" placeholder="Received Quantity" className="p-2 border rounded w-full" required />
-                                <input type="text" name="receipt_no" placeholder="Receipt No." className="p-2 border rounded w-full" required />
-                                <input type="date" name="receipt_date" className="p-2 border rounded w-full" defaultValue={new Date().toISOString().slice(0,10)} required />
-                                <textarea name="serial_no" placeholder="Serial Numbers (comma separated)" className="p-2 border rounded w-full"></textarea>
-                                <div className="flex justify-end gap-2">
-                                    <button type="button" className="bg-gray-200 text-gray-800 py-2 px-4 rounded" onClick={() => setShowReceivingModal(false)}>Cancel</button>
-                                    <button type="submit" className="bg-green-600 text-white py-2 px-4 rounded hover:bg-green-700">Receive Stock</button>
-                                </div>
-                            </div>
-                        </form>
-                    </div>
+                        </div>
+                    </form>
                 </div>
-            )}
+            </div>
         </div>
     );
 }
 
+// Product Details Modal Content Component
+function ProductDetailsModalContent({ product, getBranchName, productNameMap, onUpdate, onClose }: {
+    product: PurchaseOrderProduct;
+    getBranchName: (id: number) => string;
+    productNameMap: Map<number, string>;
+    onUpdate: (updatedData: { branch_id: number, ordered_quantity: number }) => void;
+    onClose: () => void;
+}) {
+    const [localBranch, setLocalBranch] = useState<{ id: number | string; name: string } | null>(null);
+    const [localQuantity, setLocalQuantity] = useState(product.ordered_quantity);
+    const [isDirty, setIsDirty] = useState(false);
+    const [isUpdating, setIsUpdating] = useState(false);
+
+    useEffect(() => {
+        setLocalBranch({ id: product.branch_id, name: getBranchName(product.branch_id) });
+        setLocalQuantity(product.ordered_quantity);
+        setIsDirty(false);
+    }, [product, getBranchName]);
+
+    const handleUpdate = async () => {
+        if (!localBranch || !localBranch.id) return;
+        setIsUpdating(true);
+
+        const payload: any = {};
+        if (localBranch.id !== product.branch_id) {
+            payload.branch_id = localBranch.id;
+        }
+        if (localQuantity !== product.ordered_quantity) {
+            payload.ordered_quantity = localQuantity;
+        }
+
+        try {
+            const res = await fetch(`${API_BASE}/purchase_order_products/${product.purchase_order_product_id}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+            });
+
+            if (res.ok) {
+                onUpdate({
+                    branch_id: localBranch.id as number,
+                    ordered_quantity: localQuantity
+                });
+            } else {
+                console.error("Failed to update the product details.");
+            }
+        } catch (error) {
+            console.error("An error occurred during update:", error);
+        } finally {
+            setIsUpdating(false);
+        }
+    };
+
+    return (
+        <div className="p-6 space-y-4">
+            <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm items-center">
+                <strong className="text-gray-500 col-span-2">Product:</strong>
+                <span className="font-medium text-gray-900 col-span-2 mb-2">{productNameMap.get(product.product_id) || `Product ${product.product_id}`}</span>
+
+                <strong className="text-gray-500 col-span-2">Branch / Warehouse</strong>
+                <div className="col-span-2">
+                    <AsyncSelect
+                        label=""
+                        placeholder="Search Branch..."
+                        fetchUrl={`${API_BASE}/branches`}
+                        initial={localBranch}
+                        mapOption={(branch: any) => ({ id: branch.id, name: branch.branch_name })}
+                        onChange={(opt: any) => {
+                            setLocalBranch(opt);
+                            setIsDirty(true);
+                        }}
+                        disabled={false}
+                    />
+                </div>
+
+                <strong className="text-gray-500 pt-4">Ordered Quantity:</strong>
+                <input
+                    type="number"
+                    className="p-2 border rounded w-full mt-4"
+                    value={localQuantity}
+                    onChange={(e) => {
+                        setLocalQuantity(Number(e.target.value));
+                        setIsDirty(true);
+                    }}
+                    min={1}
+                />
+
+                <strong className="text-gray-500">Unit Price:</strong>
+                <span>₱{parseFloat(product.unit_price).toFixed(2)}</span>
+
+                <strong className="text-gray-500">Discounted Price:</strong>
+                <span>{product.discounted_price ? `₱${parseFloat(product.discounted_price).toFixed(2)}` : 'N/A'}</span>
+
+                <strong className="text-gray-500">Total Amount:</strong>
+                <span>{product.total_amount ? `₱${parseFloat(product.total_amount).toFixed(2)}` : 'N/A'}</span>
+            </div>
+            <div className="flex justify-end pt-4 gap-2">
+                {isDirty && (
+                    <button
+                        type="button"
+                        className="bg-indigo-600 text-white py-2 px-4 rounded-lg hover:bg-indigo-700 disabled:opacity-50"
+                        onClick={handleUpdate}
+                        disabled={isUpdating}
+                    >
+                        {isUpdating ? 'Updating...' : 'Update'}
+                    </button>
+                )}
+                <button
+                    type="button"
+                    className="bg-gray-300 text-gray-700 py-2 px-4 rounded-lg hover:bg-gray-400"
+                    onClick={onClose}
+                >
+                    Close
+                </button>
+            </div>
+        </div>
+    );
+}

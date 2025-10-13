@@ -1,4 +1,3 @@
-// src/components/ui/AsyncSelect.tsx
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -51,10 +50,17 @@ export function AsyncSelect({
         timer.current = window.setTimeout(async () => {
             setLoading(true);
             try {
-                const url = new URL(fetchUrl, window.location.origin);
-                if (q.trim()) url.searchParams.set("q", q.trim());
-                const res = await fetch(url.toString(), { credentials: "include" });
+                // Use a base URL if fetchUrl is relative, otherwise use it as is.
+                const url = new URL(fetchUrl.startsWith('http') ? fetchUrl : `${window.location.origin}${fetchUrl}`);
+                if (q.trim()) {
+                    // *** FIXED: Changed query parameter from "q" to "search" ***
+                    url.searchParams.set("search", q.trim());
+                }
+
+                // Removed "credentials: 'include'" unless you specifically need it for cookies
+                const res = await fetch(url.toString());
                 const json = await res.json();
+
                 let data = json.data || json;
                 if (Array.isArray(data) && mapOption) {
                     data = data.map(mapOption);
@@ -81,11 +87,15 @@ export function AsyncSelect({
                     className="w-full rounded-md border px-3 py-2 bg-white dark:bg-zinc-900"
                     value={open ? q : display}
                     onChange={(e) => setQ(e.target.value)}
-                    onFocus={() => setOpen(true)}
+                    onFocus={() => {
+                        setOpen(true);
+                        // Start with the current selection name as the query
+                        if(sel) setQ(sel.name);
+                    }}
                     placeholder={placeholder}
                     disabled={disabled}
                 />
-                {sel && (
+                {sel && !disabled && (
                     <button
                         type="button"
                         className="text-xs rounded border px-2 py-1"
@@ -101,10 +111,10 @@ export function AsyncSelect({
             </div>
 
             {open && (
-                <div className="absolute z-50 mt-1 w-full rounded-md border bg-white dark:bg-zinc-900 shadow">
+                <div className="absolute z-50 mt-1 w-full rounded-md border bg-white dark:bg-zinc-900 shadow max-h-60 overflow-y-auto">
                     {loading && <div className="p-2 text-sm text-gray-500">Loading…</div>}
                     {!loading && opts.length === 0 && (
-                        <div className="p-2 text-sm text-gray-500">No results</div>
+                        <div className="p-2 text-sm text-gray-500">{q ? "No results found" : "Type to search"}</div>
                     )}
                     {!loading &&
                         opts.map((o, idx) => (

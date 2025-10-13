@@ -9,7 +9,7 @@ interface PurchaseOrderFormDialogProps {
     onOpenChange: (open: boolean) => void;
     current: any | null;
     suppliers: any[];
-    paymentMethods: any[];
+    paymentTerms: any[];
     receivingTypes: any[];
     onSubmit: (data: any) => Promise<void>;
 }
@@ -20,7 +20,7 @@ export function PurchaseOrderFormDialog({
                                             onOpenChange,
                                             current,
                                             suppliers,
-                                            paymentMethods,
+                                            paymentTerms,
                                             receivingTypes,
                                             onSubmit,
                                         }: PurchaseOrderFormDialogProps) {
@@ -32,12 +32,12 @@ export function PurchaseOrderFormDialog({
     const [productFields, setProductFields] = useState({
         product_id: "",
         ordered_quantity: "",
-        unit_price: "",
-        approved_price: "",
-        discounted_price: "",
-        vat_amount: "",
-        withholding_amount: "",
-        total_amount: "",
+        unit_price: 0,
+        approved_price: 0,
+        discounted_price: 0,
+        vat_amount: 0,
+        withholding_amount: 0,
+        total_amount: 0,
         branch_id: "",
         received: false,
     });
@@ -48,6 +48,7 @@ export function PurchaseOrderFormDialog({
     const [supplierId, setSupplierId] = useState("");
 
     const [products, setProducts] = useState<any[]>([]);
+    const [taxRates, setTaxRates] = useState({ VATRate: 0, WithholdingRate: 0 });
     const modalRef = useRef<HTMLDivElement>(null);
 
     // Effect to initialize and reset state based on modal visibility and mode
@@ -67,9 +68,16 @@ export function PurchaseOrderFormDialog({
             setFormError("");
             setProductError("");
             setProductFields({
-                product_id: "", ordered_quantity: "", unit_price: "", approved_price: "",
-                discounted_price: "", vat_amount: "", withholding_amount: "", total_amount: "",
-                branch_id: "", received: false,
+                product_id: "",
+                ordered_quantity: "",
+                unit_price: 0,
+                approved_price: 0,
+                discounted_price: 0,
+                vat_amount: 0,
+                withholding_amount: 0,
+                total_amount: 0,
+                branch_id: "",
+                received: false,
             });
         }
     }, [open, current, mode, suppliers]);
@@ -187,9 +195,16 @@ export function PurchaseOrderFormDialog({
             });
             if (!res.ok) throw new Error("Failed to add product to PO");
             setProductFields({
-                product_id: "", ordered_quantity: "", unit_price: "", approved_price: "",
-                discounted_price: "", vat_amount: "", withholding_amount: "", total_amount: "",
-                branch_id: "", received: false,
+                product_id: "",
+                ordered_quantity: "",
+                unit_price: 0,
+                approved_price: 0,
+                discounted_price: 0,
+                vat_amount: 0,
+                withholding_amount: 0,
+                total_amount: 0,
+                branch_id: "",
+                received: false,
             });
         } catch (err) {
             setProductError("Error adding product to PO.");
@@ -253,7 +268,7 @@ export function PurchaseOrderFormDialog({
                         )}
                         <div className="grid gap-4 md:grid-cols-2">
                             <div className="space-y-2">
-                                <label htmlFor="supplier_id" className="text-sm font-medium">Supplier</label>
+                                {/* Removed Supplier label */}
                                 <select
                                     id="supplier_id"
                                     name="supplier_id"
@@ -264,7 +279,6 @@ export function PurchaseOrderFormDialog({
                                         const newSupplierId = e.target.value;
                                         const supplier = suppliers.find(s => s.id === Number(newSupplierId));
                                         setSelectedSupplier(supplier || null);
-                                        // This is the key change: update the supplierId for the product section
                                         setSupplierId(newSupplierId);
                                     }}
                                 >
@@ -329,16 +343,16 @@ export function PurchaseOrderFormDialog({
                                 />
                             </div>
                             <div className="space-y-2">
-                                <label htmlFor="payment_type" className="text-sm font-medium">Payment Type</label>
+                                <label htmlFor="payment_type" className="text-sm font-medium">Payment Term</label>
                                 <select
                                     id="payment_type" name="payment_type" required
                                     className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm"
-                                    defaultValue={selectedSupplier?.payment_terms === "Cash On Delivery" ? 1 : current?.payment_type}
+                                    defaultValue={current?.payment_type}
                                 >
-                                    <option value="">Select a payment type</option>
-                                    {paymentMethods.map((method) => (
-                                        <option key={method.method_id} value={method.method_id}>
-                                            {method.method_name}
+                                    <option value="">Select a payment term</option>
+                                    {paymentTerms.map((term) => (
+                                        <option key={term.id} value={term.id}>
+                                            {term.payment_name}
                                         </option>
                                     ))}
                                 </select>
@@ -453,25 +467,28 @@ export function PurchaseOrderFormDialog({
                             <div>
                                 <label>Discounted Price</label>
                                 <input
-                                    name="discounted_price" type="number" step="0.01"
-                                    value={productFields.discounted_price} onChange={handleProductFieldChange}
-                                    className="input"
+                                    type="number"
+                                    value={productFields.discounted_price}
+                                    readOnly
+                                    className="input bg-gray-100" // Styled to indicate read-only
                                 />
                             </div>
                             <div>
                                 <label>VAT Amount</label>
                                 <input
-                                    name="vat_amount" type="number" step="0.01"
-                                    value={productFields.vat_amount} onChange={handleProductFieldChange}
-                                    className="input"
+                                    type="number"
+                                    value={(productFields.unit_price * taxRates.VATRate).toFixed(2)}
+                                    readOnly
+                                    className="input bg-gray-100" // Styled to indicate read-only
                                 />
                             </div>
                             <div>
                                 <label>Withholding Amount</label>
                                 <input
-                                    name="withholding_amount" type="number" step="0.01"
-                                    value={productFields.withholding_amount} onChange={handleProductFieldChange}
-                                    className="input"
+                                    type="number"
+                                    value={(productFields.unit_price * taxRates.WithholdingRate).toFixed(2)}
+                                    readOnly
+                                    className="input bg-gray-100" // Styled to indicate read-only
                                 />
                             </div>
                             <div>
@@ -507,6 +524,25 @@ export function PurchaseOrderFormDialog({
                                 </button>
                             </div>
                         </form>
+
+                        {/* New Ordered Quantity Field */}
+                        {products.length > 0 && (
+                            <div className="space-y-2">
+                                <label htmlFor="ordered_quantity" className="block text-sm font-medium text-gray-700">
+                                    Order Quantity
+                                </label>
+                                <input
+                                    type="number"
+                                    id="ordered_quantity"
+                                    name="ordered_quantity"
+                                    value={productFields.ordered_quantity}
+                                    onChange={handleProductFieldChange}
+                                    className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                                    placeholder="Enter order quantity"
+                                    required
+                                />
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>
