@@ -692,7 +692,7 @@ export function PurchaseOrderView() {
                                         name="receiving_type"
                                         id="receiving_type"
                                         value="RECEIVE FROM PO"
-                                        readOnly
+// readOnly
                                         disabled
                                         className="block w-full p-2 border rounded-md bg-gray-50 text-gray-900 cursor-not-allowed"
                                     >
