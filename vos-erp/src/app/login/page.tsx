@@ -45,18 +45,30 @@ export default function LoginPage() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ email, password }),
             });
+
             setLoading(false);
             if (!res.ok) {
                 const j = await res.json().catch(()=> ({}));
                 setErr(j?.error || 'Login failed');
                 return;
             }
+
+            const data = await res.json();
+
+            // 🧠 Store user ID and department for later use
+            if (data.user) {
+                localStorage.setItem('user_id', data.user.id);
+                localStorage.setItem('user_department', data.user.user_department);
+                localStorage.setItem('user_email', data.user.email);
+            }
+
             router.replace(nextPath);
         } catch (err) {
             setLoading(false);
             setErr('Login failed. Please try again.');
         }
     }
+
 
     async function loginRfid(e: React.FormEvent) {
         e.preventDefault();
