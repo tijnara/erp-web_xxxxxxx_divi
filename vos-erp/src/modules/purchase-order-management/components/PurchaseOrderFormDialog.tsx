@@ -134,13 +134,14 @@ export function PurchaseOrderFormDialog({
             setIsSubmitting(false);
             return;
         }
+        const receivingTypeValue = formData.get("receiving_type");
+        console.log('Submitted receiving_type:', receivingTypeValue);
         const data = {
             supplier_id: Number(supplierIdValue),
             reference: formData.get("reference"),
             remark: formData.get("remark"),
             barcode: formData.get("barcode"),
-            receiving_type: Number(formData.get("receiving_type")),
-            payment_type: Number(formData.get("payment_type")),
+            receiving_type: Number(receivingTypeValue),
             price_type: Number(formData.get("price_type")),
             receipt_required: formData.get("receipt_required") === "on",
             date: formData.get("date"),
@@ -244,6 +245,10 @@ export function PurchaseOrderFormDialog({
         fetchProducts();
     }, [supplierId]);
 
+    useEffect(() => {
+        console.log('Receiving Types:', receivingTypes);
+    }, [receivingTypes]);
+
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
             <div
@@ -341,21 +346,6 @@ export function PurchaseOrderFormDialog({
                                     placeholder="e.g., 1500.50"
                                     defaultValue={current?.total_amount}
                                 />
-                            </div>
-                            <div className="space-y-2">
-                                <label htmlFor="payment_type" className="text-sm font-medium">Payment Term</label>
-                                <select
-                                    id="payment_type" name="payment_type" required
-                                    className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm"
-                                    defaultValue={current?.payment_type}
-                                >
-                                    <option value="">Select a payment term</option>
-                                    {paymentTerms.map((term) => (
-                                        <option key={term.id} value={term.id}>
-                                            {term.payment_name}
-                                        </option>
-                                    ))}
-                                </select>
                             </div>
                             <div className="space-y-2">
                                 <label htmlFor="receiving_type" className="text-sm font-medium">Receiving Type</label>

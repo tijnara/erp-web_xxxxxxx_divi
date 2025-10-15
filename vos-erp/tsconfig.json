@@ -21,10 +21,19 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["src/*"],
-      "@/data/*": ["data/*"]
-    }
+      "@/data/*": ["data/*"],
+      "@/public/*": ["public/*"]
+    },
+    "typeRoots": ["./node_modules/@types", "./data"]
   },
-  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts",
+    "data/**/*.d.ts",
+    "data/data.d.ts"
+  ],
   "exclude": ["node_modules"],
   "ts-node": {
     "compilerOptions": {

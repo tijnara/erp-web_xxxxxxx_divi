@@ -110,7 +110,7 @@ export function PurchaseOrderView() {
     const [paymentTerms, setPaymentTerms] = useState<{id: number, payment_name: string, payment_days: number|null}[]>([]);
     const [paymentTermsLoading, setPaymentTermsLoading] = useState(false);
     const [selectedPaymentTermId, setSelectedPaymentTermId] = useState<number | string>("");
-
+    const [selectedPaymentType, setSelectedPaymentType] = useState<string>("");
 
     useSession();
 
@@ -585,8 +585,8 @@ export function PurchaseOrderView() {
                                     payment_term,
                                     price_type,
                                     date_encoded,
-                                    time: timeNow,
-                                    datetime: datetimeLocal,
+                                    time: timeNow, // Retained time field
+                                    datetime: datetimeLocal, // Retained datetime field
                                     date,
                                     reference,
                                     remark,
@@ -686,18 +686,24 @@ export function PurchaseOrderView() {
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
-                                <label htmlFor="receiving_type" className="block text-sm font-medium text-gray-700">Receiving Type</label>
-                                <div className="mt-1">
-                                    <select
-                                        name="receiving_type"
-                                        id="receiving_type"
-                                        value="RECEIVE FROM PO"
-// readOnly
-                                        disabled
-                                        className="block w-full p-2 border rounded-md bg-gray-50 text-gray-900 cursor-not-allowed"
-                                    >
-                                        <option value="RECEIVE FROM PO">RECEIVE FROM PO</option>
-                                    </select>
+
+                                <div>
+                                    <label htmlFor="receiving_type" className="block text-sm font-medium text-gray-700">Receiving Type</label>
+                                    <div className="mt-1">
+                                        <select
+                                            name="receiving_type"
+                                            id="receiving_type"
+                                            required
+                                            className="block w-full p-2 border rounded-md bg-gray-50 text-gray-900"
+                                        >
+                                            <option value="" disabled>Select a receiving type</option>
+                                            {receivingTypes.map(type => (
+                                                <option key={type.id} value={type.id}>
+                                                    {type.description}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
                                 </div>
                             </div>
                             <div>

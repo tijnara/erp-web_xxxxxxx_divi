@@ -3,4 +3,3 @@ import SalesOrderManagementModule from '@/modules/sales-order-management/SalesOr
 export default function SalesOrderPage() {
   return <SalesOrderManagementModule />;
 }
-
