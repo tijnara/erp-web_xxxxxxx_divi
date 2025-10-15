@@ -17,6 +17,7 @@ import barangaysData from "@/public/barangay.json";
 
 // Client data structure aligned with the API/database
 interface ClientInfo {
+    id?: number; // Optional ID for existing clients
     first_name: string;
     last_name: string;
     email: string;
@@ -52,7 +53,7 @@ interface RequestData {
 
 // Interfaces for dynamic dropdown options and address data
 interface DropdownOption { id: number; name: string; }
-interface UserOption { label: string; value: ClientInfo & { id: number }; }
+interface UserOption { label: string; value: ClientInfo; }
 interface Province { province_code: string; province_name: string; }
 interface City { city_code: string; city_name: string; province_code: string; }
 interface Barangay { brgy_code: string; brgy_name: string; city_code: string; }
@@ -76,6 +77,7 @@ export default function SalesOrderManagementModule() {
 
     const [selectedUser, setSelectedUser] = useState<UserOption | null>(null);
     const [attachments, setAttachments] = useState<File[]>([]);
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     // Dropdown options from API
     const [propertyTypes, setPropertyTypes] = useState<DropdownOption[]>([]);
@@ -100,26 +102,23 @@ export default function SalesOrderManagementModule() {
         const width = Number(roomData.width_m) || 0;
         const height = Number(roomData.ceiling_height_m) || 0;
         setRoomVolume(length * width * height);
+        // Using a common estimation formula: (L * W * AreaFactor) / 12000 BTU/hr per Ton. Here using a simplified HP calc.
         setCoolingCapacity((length * width * 600) / 9000);
     }, [roomData.length_m, roomData.width_m, roomData.ceiling_height_m]);
 
     useEffect(() => {
         const fetchDropdownData = async () => {
             try {
+                const API_BASE_URL = 'http://100.119.3.44:8090/items';
                 const [
-                    roomUseRes,
-                    propTypeRes,
-                    sunExpRes,
-                    insulationRes,
-                    voltageRes,
-                    unitTypeRes
+                    roomUseRes, propTypeRes, sunExpRes, insulationRes, voltageRes, unitTypeRes
                 ] = await Promise.all([
-                    axios.get('http://100.119.3.44:8090/items/room_uses'),
-                    axios.get('http://100.119.3.44:8090/items/property_types'),
-                    axios.get('http://100.119.3.44:8090/items/sun_exposures'),
-                    axios.get('http://100.119.3.44:8090/items/insulation_types'),
-                    axios.get('http://100.119.3.44:8090/items/supply_voltages'),
-                    axios.get('http://100.119.3.44:8090/items/ac_unit_types')
+                    axios.get(`${API_BASE_URL}/room_uses`),
+                    axios.get(`${API_BASE_URL}/property_types`),
+                    axios.get(`${API_BASE_URL}/sun_exposures`),
+                    axios.get(`${API_BASE_URL}/insulation_types`),
+                    axios.get(`${API_BASE_URL}/supply_voltages`),
+                    axios.get(`${API_BASE_URL}/ac_unit_types`)
                 ]);
 
                 setRoomUses(roomUseRes.data.data.map((item: any) => ({ id: item.id, name: item.name })));
@@ -130,6 +129,7 @@ export default function SalesOrderManagementModule() {
                 setAcUnitTypes(unitTypeRes.data.data.map((item: any) => ({ id: item.id, name: item.type })));
             } catch (error) {
                 console.error("Failed to fetch dropdown data:", error);
+                alert("Could not load form options. Please check the connection and refresh.");
             }
         };
         fetchDropdownData();
@@ -138,13 +138,14 @@ export default function SalesOrderManagementModule() {
     // --- Event Handlers ---
 
     const loadUserOptions = async (inputValue: string): Promise<UserOption[]> => {
-        if (!inputValue) return [];
+        if (inputValue.length < 2) return [];
         try {
-            const response = await axios.get(`/api/customer_information?search=${inputValue}`);
+            // Using a filter query for Directus
+            const response = await axios.get(`http://100.119.3.44:8090/items/customer_information?search=${inputValue}`);
             const users = response.data.data || [];
             return users.map((user: any) => ({
                 label: `${user.first_name} ${user.last_name} (${user.email})`,
-                value: { ...user }
+                value: { ...user } // Store the full user object
             }));
         } catch (error) {
             console.error("Failed to fetch users", error);
@@ -156,15 +157,26 @@ export default function SalesOrderManagementModule() {
         setSelectedUser(selectedOption);
         if (selectedOption) {
             const userValue = selectedOption.value;
-            setClientInfo(userValue);
 
-            // Pre-populate address dropdowns when an existing user is selected
-            if (userValue.province_state) {
-                const cities = (citiesData as City[]).filter(city => city.province_code === userValue.province_state);
+            // Find codes from names to set dropdowns correctly
+            const province = (provincesData as Province[]).find(p => p.province_name === userValue.province_state);
+            const city = (citiesData as City[]).find(c => c.city_name === userValue.city_municipality);
+            const barangay = (barangaysData as Barangay[]).find(b => b.brgy_name === userValue.barangay);
+
+            const clientDataWithCodes = {
+                ...userValue,
+                province_state: province?.province_code || '',
+                city_municipality: city?.city_code || '',
+                barangay: barangay?.brgy_code || ''
+            };
+            setClientInfo(clientDataWithCodes);
+
+            if (province) {
+                const cities = (citiesData as City[]).filter(c => c.province_code === province.province_code);
                 setFilteredCities(cities);
             }
-            if (userValue.city_municipality) {
-                const barangays = (barangaysData as Barangay[]).filter(brgy => brgy.city_code === userValue.city_municipality);
+            if (city) {
+                const barangays = (barangaysData as Barangay[]).filter(brgy => brgy.city_code === city.city_code);
                 setFilteredBarangays(barangays);
             }
         } else {
@@ -182,35 +194,21 @@ export default function SalesOrderManagementModule() {
         setFilteredBarangays([]);
     };
 
-    // Specific handlers for cascading address dropdowns
     const handleProvinceChange = (e: ChangeEvent<HTMLSelectElement>) => {
         const provinceCode = e.target.value;
-        setClientInfo(prev => ({
-            ...prev,
-            province_state: provinceCode,
-            city_municipality: "", // Reset city
-            barangay: ""           // Reset barangay
-        }));
-        const newFilteredCities = (citiesData as City[]).filter(city => city.province_code === provinceCode);
-        setFilteredCities(newFilteredCities);
-        setFilteredBarangays([]); // Clear old barangay options
+        setClientInfo(prev => ({ ...prev, province_state: provinceCode, city_municipality: "", barangay: "" }));
+        setFilteredCities((citiesData as City[]).filter(city => city.province_code === provinceCode));
+        setFilteredBarangays([]);
     };
 
     const handleCityChange = (e: ChangeEvent<HTMLSelectElement>) => {
         const cityCode = e.target.value;
-        setClientInfo(prev => ({
-            ...prev,
-            city_municipality: cityCode,
-            barangay: "" // Reset barangay
-        }));
-        const newFilteredBarangays = (barangaysData as Barangay[]).filter(barangay => barangay.city_code === cityCode);
-        setFilteredBarangays(newFilteredBarangays);
+        setClientInfo(prev => ({ ...prev, city_municipality: cityCode, barangay: "" }));
+        setFilteredBarangays((barangaysData as Barangay[]).filter(barangay => barangay.city_code === cityCode));
     };
 
-    // Generic handlers for other inputs
     const handleClientInputChange = (e: ChangeEvent<HTMLInputElement>) => setClientInfo(prev => ({ ...prev, [e.target.name]: e.target.value }));
     const handleClientSelectChange = (e: ChangeEvent<HTMLSelectElement>) => setClientInfo(prev => ({ ...prev, [e.target.name]: e.target.value }));
-
     const handleRoomChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setRoomData(prev => ({ ...prev, [e.target.name]: e.target.value }));
     const handleRequestChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => setRequestData(prev => ({ ...prev, [e.target.name]: e.target.value }));
     const handleWindowChange = (index: number, e: ChangeEvent<HTMLInputElement>) => {
@@ -225,74 +223,121 @@ export default function SalesOrderManagementModule() {
     // --- Form Submission Logic ---
     const handleSubmit = async (e: FormEvent) => {
         e.preventDefault();
+        setIsSubmitting(true);
+
+        const API_BASE_URL = 'http://100.119.3.44:8090';
+
+        // --- Find full string names for address parts for the payload ---
+        const provinceName = (provincesData as Province[]).find(p => p.province_code === clientInfo.province_state)?.province_name || '';
+        const cityName = (citiesData as City[]).find(c => c.city_code === clientInfo.city_municipality)?.city_name || '';
+        const barangayName = (barangaysData as Barangay[]).find(b => b.brgy_code === clientInfo.barangay)?.brgy_name || '';
+
+        if (!provinceName || !cityName || !barangayName) {
+            alert("Please ensure a valid Province, City, and Barangay are selected.");
+            setIsSubmitting(false);
+            return;
+        }
+
         try {
-            // Log clientInfo state for debugging
-            console.log("Client Info State:", JSON.stringify(clientInfo, null, 2));
-
-            // Validate province_state and city_municipality
-            if (!clientInfo.province_state) {
-                alert("Please select a valid province.");
-                return;
-            }
-            if (!clientInfo.city_municipality) {
-                alert("Please select a valid city/municipality.");
-                return;
-            }
-
-            const provinceName = provincesData.find(p => p.province_code === clientInfo.province_state)?.province_name || "";
-            const cityName = citiesData.find(c => c.city_code === clientInfo.city_municipality)?.city_name || "";
-            const barangayName = barangaysData.find(b => b.brgy_code === clientInfo.barangay)?.brgy_name || "";
+            // --- STEP 1: Create or Update Customer ---
+            let customerId: number;
             const customerPayload = {
                 first_name: clientInfo.first_name,
                 last_name: clientInfo.last_name,
                 email: clientInfo.email,
                 phone: clientInfo.phone,
                 street_address: clientInfo.street_address,
-                province: clientInfo.province_state,
-                province_name: provinceName,
-                city: clientInfo.city_municipality,
-                city_name: cityName,
-                barangay: clientInfo.barangay,
-                brgy_name: barangayName,
+                province_state: provinceName,
+                city_municipality: cityName,
+                barangay: barangayName,
                 postal_code: clientInfo.postal_code,
             };
 
-            console.log("Customer Payload:", JSON.stringify(customerPayload, null, 2));
+            if (selectedUser?.value?.id) {
+                // UPDATE existing customer
+                const response = await axios.patch(`${API_BASE_URL}/items/customer_information/${selectedUser.value.id}`, customerPayload);
+                customerId = response.data.data.id;
+                console.log("Updated existing customer:", response.data.data);
+            } else {
+                // CREATE new customer
+                const response = await axios.post(`${API_BASE_URL}/items/customer_information`, customerPayload);
+                customerId = response.data.data.id;
+                console.log("Created new customer:", response.data.data);
+            }
 
-            const attachmentPayload = attachments.map(file => ({
-                file_name: file.name,
-                file_type: file.type,
-                file_size: file.size,
-            }));
+            if (!customerId) throw new Error("Could not save customer information.");
 
+            // --- STEP 2: Create Installation Request ---
             const installationRequestPayload = {
-                ...requestData,
-                room_data: roomData,
-                address: {
-                    province: clientInfo.province_state,
-                    province_name: provinceName,
-                    city: clientInfo.city_municipality,
-                    city_name: cityName,
-                    barangay: clientInfo.barangay,
-                    brgy_name: barangayName,
-                },
+                client_id: customerId,
+                // Request Data
+                supply_voltage_id: requestData.supply_voltage_id || null,
+                available_breaker_amps: requestData.available_breaker_amps || null,
+                preferred_unit_type_id: requestData.preferred_unit_type_id || null,
+                budget_php: requestData.budget_php || null,
+                notes: requestData.notes,
+                preferred_date: requestData.preferred_date || null,
+                preferred_time: requestData.preferred_time || null,
+                // Room Data (assuming a JSON field named 'room_data' exists on the installation_requests table)
+                room_data: {
+                    ...roomData,
+                    windows: roomData.windows.filter(w => w.width_m && w.height_m) // Clean up empty windows
+                }
             };
 
-            console.log("Installation Request Payload:", JSON.stringify(installationRequestPayload, null, 2));
+            const requestResponse = await axios.post(`${API_BASE_URL}/items/installation_requests`, installationRequestPayload);
+            const newRequestId = requestResponse.data.data.id;
+            console.log("Created installation request:", requestResponse.data.data);
 
-            // Simulate saving customer information, attachments, and installation request
-            console.log("Simulated Save: Customer Information", customerPayload);
-            console.log("Simulated Save: Attachments", attachmentPayload);
-            console.log("Simulated Save: Installation Request", installationRequestPayload);
+            if (!newRequestId) throw new Error("Could not create the installation request.");
 
-            alert("All data submitted successfully!");
+            // --- STEP 3 & 4: Upload and Link Attachments ---
+            if (attachments.length > 0) {
+                // 3a: Upload all files to the /files endpoint
+                const uploadPromises = attachments.map(file => {
+                    const formData = new FormData();
+                    formData.append('file', file);
+                    return axios.post(`${API_BASE_URL}/files`, formData, {
+                        headers: { 'Content-Type': 'multipart/form-data' }
+                    });
+                });
+
+                const uploadResults = await Promise.all(uploadPromises);
+                console.log("File upload successful:", uploadResults);
+
+                // 3b: Create records in the 'attachments' collection
+                const attachmentPayloads = uploadResults.map((result, index) => {
+                    const uploadedFile = result.data.data;
+                    const originalFile = attachments[index];
+                    return {
+                        request_id: newRequestId,
+                        file_name: originalFile.name,
+                        file_path: uploadedFile.id, // Store the Directus file ID in file_path
+                        file_type: originalFile.type,
+                        file_size_bytes: originalFile.size,
+                    };
+                });
+
+                await axios.post(`${API_BASE_URL}/items/attachments`, attachmentPayloads);
+                console.log("Attachment records created.");
+            }
+
+            // --- SUCCESS ---
+            alert("Request submitted successfully!");
             clearForm();
+
         } catch (error: any) {
-            console.error("Submission failed:", error.message);
-            alert(`An error occurred: ${error.message}`);
+            console.error("Submission failed:", error);
+            const errorMessage = axios.isAxiosError(error)
+                ? error.response?.data?.errors?.[0]?.message || error.message
+                : error.message;
+            alert(`An error occurred: ${errorMessage}`);
+        } finally {
+            setIsSubmitting(false);
         }
     };
 
+    // --- JSX Return ---
     return (
         <form className="space-y-6 p-6 bg-white rounded shadow-lg" onSubmit={handleSubmit}>
             <h1 className="text-2xl font-bold">Aircon Installation - Client Profiling</h1>
@@ -321,11 +366,7 @@ export default function SalesOrderManagementModule() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
                     <Label>Province *
                         <select name="province_state" value={clientInfo.province_state} onChange={handleProvinceChange} className="border rounded p-2 h-10 w-full mt-1" required>
-                            <option value="">Select Province</option>
-                            {(provincesData as Province[]).map((p, index) => (
-                                <option key={`${p.province_code}-${index}`} value={p.province_code}>{p.province_name}</option>
-                            ))}
-                        </select>
+                            <option value="">Select Province</option>{(provincesData as Province[]).map((p, index) => (<option key={`${p.province_code}-${index}`} value={p.province_code}>{p.province_name}</option>))}</select>
                     </Label>
                     <Label>City/Municipality *
                         <select name="city_municipality" value={clientInfo.city_municipality} onChange={handleCityChange} className="border rounded p-2 h-10 w-full mt-1" required disabled={!clientInfo.province_state}>
@@ -358,9 +399,9 @@ export default function SalesOrderManagementModule() {
                             {roomUses.map(opt => <option key={opt.id} value={opt.id}>{opt.name}</option>)}
                         </select>
                     </Label>
-                    <Label>Room Length (m) *<Input name="length_m" value={roomData.length_m} onChange={handleRoomChange} required type="number" step="0.1" className="border rounded p-2 w-full" /></Label>
-                    <Label>Room Width (m) *<Input name="width_m" value={roomData.width_m} onChange={handleRoomChange} required type="number" step="0.1" className="border rounded p-2 w-full" /></Label>
-                    <Label>Ceiling Height (m) *<Input name="ceiling_height_m" value={roomData.ceiling_height_m} onChange={handleRoomChange} required type="number" step="0.1" className="border rounded p-2 w-full" /></Label>
+                    <Label>Room Length (m) *<Input name="length_m" value={roomData.length_m} onChange={handleRoomChange} required type="number" step="0.1" /></Label>
+                    <Label>Room Width (m) *<Input name="width_m" value={roomData.width_m} onChange={handleRoomChange} required type="number" step="0.1" /></Label>
+                    <Label>Ceiling Height (m) *<Input name="ceiling_height_m" value={roomData.ceiling_height_m} onChange={handleRoomChange} required type="number" step="0.1" /></Label>
                     <Label>Sun Exposure *
                         <select name="sun_exposure_id" value={roomData.sun_exposure_id} onChange={handleRoomChange} className="border rounded p-2 h-10 w-full mt-1" required>
                             <option value="" disabled>Select Sun Exposure</option>
@@ -373,14 +414,14 @@ export default function SalesOrderManagementModule() {
                             {insulationTypes.map(opt => <option key={opt.id} value={opt.id}>{opt.name}</option>)}
                         </select>
                     </Label>
-                    <Label>Typical Occupants *<Input name="typical_occupants" value={roomData.typical_occupants} onChange={handleRoomChange} required type="number" min="1" className="border rounded p-2 w-full" /></Label>
+                    <Label>Typical Occupants *<Input name="typical_occupants" value={roomData.typical_occupants} onChange={handleRoomChange} required type="number" min="1" /></Label>
                 </div>
                 <div>
                     <h3 className="font-semibold text-sm mb-2">Windows</h3>
                     {roomData.windows.map((window, index) => (
                         <div key={index} className="grid grid-cols-3 gap-2 items-end mb-2 p-2 border rounded">
-                            <Label>Width (m)<Input name="width_m" value={window.width_m} onChange={e => handleWindowChange(index, e)} type="number" step="0.1" className="border rounded p-2 w-full" /></Label>
-                            <Label>Height (m)<Input name="height_m" value={window.height_m} onChange={e => handleWindowChange(index, e)} type="number" step="0.1" className="border rounded p-2 w-full" /></Label>
+                            <Label>Width (m)<Input name="width_m" value={window.width_m} onChange={e => handleWindowChange(index, e)} type="number" step="0.1" /></Label>
+                            <Label>Height (m)<Input name="height_m" value={window.height_m} onChange={e => handleWindowChange(index, e)} type="number" step="0.1" /></Label>
                             <Button type="button" variant="destructive" onClick={() => removeWindow(index)} disabled={roomData.windows.length <= 1}>Remove</Button>
                         </div>
                     ))}
@@ -394,18 +435,18 @@ export default function SalesOrderManagementModule() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <Label>Supply Voltage
                         <select name="supply_voltage_id" value={requestData.supply_voltage_id} onChange={handleRequestChange} className="border rounded p-2 h-10 w-full mt-1">
-                            <option value="" disabled>Select Voltage</option>
+                            <option value="">Select Voltage</option>
                             {supplyVoltages.map(opt => <option key={opt.id} value={opt.id}>{opt.name}</option>)}
                         </select>
                     </Label>
-                    <Label>Available Breaker (A)<Input name="available_breaker_amps" value={requestData.available_breaker_amps} onChange={handleRequestChange} type="number" className="border rounded p-2 w-full" /></Label>
+                    <Label>Available Breaker (A)<Input name="available_breaker_amps" value={requestData.available_breaker_amps} onChange={handleRequestChange} type="number" /></Label>
                     <Label>Preferred Unit Type
                         <select name="preferred_unit_type_id" value={requestData.preferred_unit_type_id} onChange={handleRequestChange} className="border rounded p-2 h-10 w-full mt-1">
-                            <option value="" disabled>Select Unit Type</option>
+                            <option value="">Select Unit Type</option>
                             {acUnitTypes.map(opt => <option key={opt.id} value={opt.id}>{opt.name}</option>)}
                         </select>
                     </Label>
-                    <Label>Budget (₱)<Input name="budget_php" value={requestData.budget_php} onChange={handleRequestChange} type="number" className="border rounded p-2 w-full" /></Label>
+                    <Label>Budget (₱)<Input name="budget_php" value={requestData.budget_php} onChange={handleRequestChange} type="number" /></Label>
                 </div>
                 <Label>Notes<textarea name="notes" value={requestData.notes} onChange={handleRequestChange} className="w-full border rounded p-2" rows={3} placeholder="Additional preferences or notes..."></textarea></Label>
             </section>
@@ -428,7 +469,9 @@ export default function SalesOrderManagementModule() {
             </section>
 
             <div className="flex gap-2 mt-4 justify-end">
-                <Button type="submit" size="lg">Submit Request</Button>
+                <Button type="submit" size="lg" disabled={isSubmitting}>
+                    {isSubmitting ? 'Submitting...' : 'Submit Request'}
+                </Button>
             </div>
         </form>
     );
