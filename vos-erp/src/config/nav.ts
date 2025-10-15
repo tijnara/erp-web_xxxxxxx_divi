@@ -42,6 +42,7 @@ export const nav: NavItem[] = [
             { label: "Product", href: "/admin/product", icon: Box },
             { label: "Salesman", href: "/admin/salesman", icon: Users },
             { label: "Supplier", href: "/admin/supplier", icon: Truck },
+            { label: "Consumables", href: "/admin/consumables", icon: Box },
             { label: "Customer", href: "/admin/customer", icon: Users },
             {
                 label: "Discount Setup",
