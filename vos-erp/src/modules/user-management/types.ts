@@ -29,6 +29,8 @@ export type User = {
     biometric_id?: string;
     rf_id?: string;
     isAdmin?: number;
+    user_tags?: string[];
+    role_id?: string;
 };
 
 export type UpsertUserDTO = Partial<Omit<User, "user_id">>;
