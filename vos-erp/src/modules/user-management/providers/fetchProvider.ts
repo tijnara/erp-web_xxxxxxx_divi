@@ -90,11 +90,32 @@ export const fetchProvider = (): DataProvider => ({
     },
 
     async createUser(data) {
-        const json = await http<{ data: any }>(BASE, {
-            method: "POST",
-            body: JSON.stringify(toAPI(data)),
-        });
-        return toUI(json.data);
+        // Validation: Ensure required fields are present
+        if (!data || typeof data !== "object" || !data.user_email || !data.user_fname || !data.user_lname) {
+            console.error("Validation failed: Missing required user fields.", data);
+            throw new Error("Missing required user fields (user_email, user_fname, user_lname)");
+        }
+        try {
+            // Timeout configuration
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 10000); // 10 seconds
+            const json = await http<{ data: any }>(BASE, {
+                method: "POST",
+                body: JSON.stringify(toAPI(data)),
+                signal: controller.signal,
+            });
+            clearTimeout(timeout);
+            // Response handling
+            if (!json || !json.data) {
+                console.error("Invalid response structure", json);
+                throw new Error("Invalid response structure: missing 'data'");
+            }
+            console.log("User created successfully:", json.data);
+            return toUI(json.data);
+        } catch (error) {
+            console.error("Error creating user:", error);
+            throw error;
+        }
     },
 
     async updateUser(id, data) {
