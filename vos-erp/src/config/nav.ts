@@ -85,7 +85,7 @@ export const nav: NavItem[] = [
             { label: "Invoicing", href: "/operation/invoicing", icon: FileText },
             {
                 label: "Physical Inventory",
-                href: "/operation/physical-inventory",
+                href: "/operation/inventory",
                 icon: Boxes,
             },
             {
