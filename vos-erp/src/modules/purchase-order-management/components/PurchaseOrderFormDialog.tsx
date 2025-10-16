@@ -94,6 +94,46 @@ export function PurchaseOrderFormDialog({
             });
         }
     }, [open, current, mode, suppliers]);
+    useEffect(() => {
+        if (products.length > 0 && mode === "create") {
+            products.forEach(item => {
+                setProductFields({
+                    product_id: item.product_id,
+                    ordered_quantity: item.ordered_quantity,
+                    unit_price: item.unit_price,
+                    branch_id: item.branch_id,
+                    approved_price: 0,
+                    discounted_price: 0,
+                    vat_amount: 0,
+                    withholding_amount: 0,
+                    total_amount: item.unit_price * item.ordered_quantity,
+                    received: false,
+                });
+                // Optionally auto-add to the PO products table
+                // handleAddProductToPO(...);
+            });
+        }
+    }, [products, mode]);
+
+    useEffect(() => {
+        if (open && mode === "create") {
+            const storedItems = sessionStorage.getItem("preselectedPOItems");
+            if (storedItems) {
+                const parsedItems = JSON.parse(storedItems);
+                // Map them to the PO product state
+                const initialProducts = parsedItems.map((item: any) => ({
+                    product_id: item.product_id,
+                    ordered_quantity: item.quantity,
+                    unit_price: item.unit_price,
+                    branch_id: item.branch_id,
+                }));
+                setProducts(initialProducts);
+
+                // Clear after loading
+                sessionStorage.removeItem("preselectedPOItems");
+            }
+        }
+    }, [open, mode]);
 
 
     useEffect(() => {
