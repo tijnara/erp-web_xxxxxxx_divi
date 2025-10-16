@@ -1,13 +1,41 @@
 import { useEffect, useState } from "react";
 import { Asset } from "@/modules/assets-equipments-management/types";
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
-import { Button } from "@/components/ui/button";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { peso } from "@/lib/utils";
 
 interface AssetDetailsProps {
     isOpen: boolean;
     onClose: () => void;
     asset: Asset;
+}
+
+// Added proper type definitions for fetched data
+interface Item {
+    id: number;
+    item_type: number;
+    item_classification: number;
+    item_name: string;
+}
+
+interface ItemType {
+    id: number;
+    type_name: string;
+}
+
+interface ItemClassification {
+    id: number;
+    classification_name: string;
+}
+
+interface Department {
+    department_id: number;
+    department_name: string;
+}
+
+interface User {
+    user_id: number;
+    user_fname: string;
+    user_lname: string;
 }
 
 export function AssetDetails({ isOpen, onClose, asset: initialAsset }: AssetDetailsProps) {
@@ -24,17 +52,17 @@ export function AssetDetails({ isOpen, onClose, asset: initialAsset }: AssetDeta
                     fetch("http://100.119.3.44:8090/items/user"),
                 ]);
 
-                const itemsData = await itemsRes.json();
-                const itemTypesData = await itemTypesRes.json();
-                const classData = await classRes.json();
-                const deptData = await deptRes.json();
-                const usersData = await usersRes.json();
+                const itemsData: { data: Item[] } = await itemsRes.json();
+                const itemTypesData: { data: ItemType[] } = await itemTypesRes.json();
+                const classData: { data: ItemClassification[] } = await classRes.json();
+                const deptData: { data: Department[] } = await deptRes.json();
+                const usersData: { data: User[] } = await usersRes.json();
 
-                const itemsMap = new Map(itemsData.data.map((i: any) => [i.id, i]));
-                const typesMap = new Map(itemTypesData.data.map((t: any) => [t.id, t]));
-                const classMap = new Map(classData.data.map((c: any) => [c.id, c]));
-                const deptMap = new Map(deptData.data.map((d: any) => [d.department_id, d]));
-                const userMap = new Map(usersData.data.map((u: any) => [u.user_id, u]));
+                const itemsMap = new Map(itemsData.data.map((i) => [i.id, i]));
+                const typesMap = new Map(itemTypesData.data.map((t) => [t.id, t]));
+                const classMap = new Map(classData.data.map((c) => [c.id, c]));
+                const deptMap = new Map(deptData.data.map((d) => [d.department_id, d]));
+                const userMap = new Map(usersData.data.map((u) => [u.user_id, u]));
 
                 const item = itemsMap.get(initialAsset.item_id);
                 const itemType = item ? typesMap.get(item.item_type) : null;
@@ -49,8 +77,8 @@ export function AssetDetails({ isOpen, onClose, asset: initialAsset }: AssetDeta
                     itemTypeName: itemType?.type_name || 'Unknown Type',
                     itemClassificationName: itemClassification?.classification_name || 'Unknown Classification',
                     departmentName: department?.department_name || 'Unknown Department',
-                    employeeName: employee ? `${employee.user_fname} ${employee.user_lname}` : 'Unknown User',
-                    encoderName: encoder ? `${encoder.user_fname} ${encoder.user_lname}` : 'Unknown User',
+                    employeeName: `${employee?.user_fname || ''} ${employee?.user_lname || ''}`.trim() || 'Unknown User',
+                    encoderName: `${encoder?.user_fname || ''} ${encoder?.user_lname || ''}`.trim() || 'Unknown User',
                 });
 
             } catch (error) {
@@ -63,10 +91,10 @@ export function AssetDetails({ isOpen, onClose, asset: initialAsset }: AssetDeta
         }
     }, [isOpen, initialAsset]);
 
-    const card = (k: string, v: string | number | undefined, full = false) => (
+    const card = (k: string, v: string | number | null | undefined, full = false) => (
         <div className={`border rounded-lg p-3 bg-slate-50 ${full ? 'sm:col-span-2' : ''}`}>
             <div className="text-xs text-slate-500">{k}</div>
-            <div className="font-semibold break-words">{v || '—'}</div>
+            <div className="font-semibold break-words">{v ?? '—'}</div>
         </div>
     );
 
