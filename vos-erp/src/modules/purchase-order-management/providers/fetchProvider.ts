@@ -8,6 +8,12 @@ interface ListParams {
 
 export function fetchProvider() {
     return {
+        async getPurchaseOrder(id: number) {
+            const response = await fetch(`${API_BASE}/purchase_order/${id}`);
+            if (!response.ok) throw new Error("Failed to fetch purchase order");
+            return response.json();
+        },
+
         async listPurchaseOrders({ q = "", limit = 20, offset = 0 }: ListParams) {
             const params = new URLSearchParams({
                 limit: String(limit),
@@ -16,6 +22,7 @@ export function fetchProvider() {
             });
 
             const response = await fetch(`${API_BASE}/purchase_order?${params}`);
+            if (!response.ok) throw new Error("Failed to list purchase orders");
             const json = await response.json();
             return {
                 items: json.data || [],
@@ -24,6 +31,13 @@ export function fetchProvider() {
         },
 
         async createPurchaseOrder(data: any) {
+            const lastResponse = await fetch(`${API_BASE}/purchase_order?limit=1&sort=-purchase_order_no`);
+            const lastJson = await lastResponse.json();
+            const lastPONumber = lastJson.data?.[0]?.purchase_order_no || "PO-2025-1112";
+
+            const lastNumber = parseInt(lastPONumber.split('-').pop(), 10);
+            data.purchase_order_no = `PO-2025-${(lastNumber + 1).toString().padStart(4, '0')}`;
+
             const response = await fetch(`${API_BASE}/purchase_order`, {
                 method: "POST",
                 headers: {
@@ -45,6 +59,14 @@ export function fetchProvider() {
             });
             if (!response.ok) throw new Error("Failed to update purchase order");
             return response.json();
+        },
+
+        async deletePurchaseOrder(id: number) {
+            const response = await fetch(`${API_BASE}/purchase_order/${id}`, {
+                method: "DELETE",
+            });
+            if (!response.ok) throw new Error("Failed to delete purchase order");
+            return { success: true };
         },
 
         async listSuppliers() {

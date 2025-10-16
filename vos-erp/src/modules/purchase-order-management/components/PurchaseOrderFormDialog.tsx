@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef, useCallback } from "react";
 import { Dialog } from "@/components/ui/dialog";
+import axios from 'axios';
 
 interface PurchaseOrderFormDialogProps {
     mode: "create" | "edit";
@@ -13,6 +14,19 @@ interface PurchaseOrderFormDialogProps {
     receivingTypes: any[];
     onSubmit: (data: any) => Promise<void>;
 }
+
+// Ensure taxRates includes VATRate and WithholdingRate
+interface TaxRates {
+  VATRate: number;
+  WithholdingRate: number;
+  [key: string]: number; // Allow additional dynamic properties
+}
+
+// Example usage of taxRates
+const taxRates: TaxRates = {
+  VATRate: 0.12, // Default VAT rate
+  WithholdingRate: 0.05, // Default withholding rate
+};
 
 export function PurchaseOrderFormDialog({
                                             mode,
@@ -48,7 +62,6 @@ export function PurchaseOrderFormDialog({
     const [supplierId, setSupplierId] = useState("");
 
     const [products, setProducts] = useState<any[]>([]);
-    const [taxRates, setTaxRates] = useState({ VATRate: 0, WithholdingRate: 0 });
     const modalRef = useRef<HTMLDivElement>(null);
 
     // Effect to initialize and reset state based on modal visibility and mode
@@ -248,6 +261,20 @@ export function PurchaseOrderFormDialog({
     useEffect(() => {
         console.log('Receiving Types:', receivingTypes);
     }, [receivingTypes]);
+
+    // Fetch tax rates on component mount
+    useEffect(() => {
+        axios.get('http://100.119.3.44:8090/items/tax_rates')
+            .then(response => {
+              const [taxRates, setTaxRates] = useState<TaxRates>({
+                VATRate: 0.12,
+                WithholdingRate: 0.05,
+              });
+            })
+            .catch(error => {
+                console.error('Error fetching tax rates:', error);
+            });
+    }, []);
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
@@ -467,7 +494,7 @@ export function PurchaseOrderFormDialog({
                                 <label>VAT Amount</label>
                                 <input
                                     type="number"
-                                    value={(productFields.unit_price * taxRates.VATRate).toFixed(2)}
+                                    value={(productFields.unit_price * (taxRates.VATRate || 0)).toFixed(2)}
                                     readOnly
                                     className="input bg-gray-100" // Styled to indicate read-only
                                 />
@@ -476,7 +503,7 @@ export function PurchaseOrderFormDialog({
                                 <label>Withholding Amount</label>
                                 <input
                                     type="number"
-                                    value={(productFields.unit_price * taxRates.WithholdingRate).toFixed(2)}
+                                    value={(productFields.unit_price * (taxRates.WithholdingRate || 0)).toFixed(2)}
                                     readOnly
                                     className="input bg-gray-100" // Styled to indicate read-only
                                 />
