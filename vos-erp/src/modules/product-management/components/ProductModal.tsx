@@ -43,6 +43,26 @@ export function ProductModal({
     const [saving, setSaving] = useState(false);
     const [err, setErr] = useState<string | null>(null);
 
+    const [unitOptions, setUnitOptions] = useState<{ id: number; name: string }[]>([]);
+
+    useEffect(() => {
+        if (!open) return;
+
+        // Fetch unit options when the modal opens
+        fetch("http://100.119.3.44:8090/items/units?fields=unit_id,unit_name")
+            .then((response) => response.json())
+            .then((data) => {
+                const options = (data.data || []).map((unit: any) => ({
+                    id: unit.unit_id,
+                    name: unit.unit_name,
+                }));
+                setUnitOptions(options);
+            })
+            .catch((error) => {
+                console.error("Failed to fetch unit options:", error);
+            });
+    }, [open]);
+
     useEffect(() => {
         if (!open) return;
         // seed state for edit
@@ -204,13 +224,25 @@ export function ProductModal({
 
                 {/* Autocompletes */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
-                    <AsyncSelect
-                        label="Unit"
-                        placeholder="Search units…"
-                        fetchUrl="/api/lookup/units"
-                        initial={unit}
-                        onChange={(o) => setUnit(o)}
-                    />
+                    <div>
+                        <label className="text-sm">Unit</label>
+                        <select
+                            className="mt-1 w-full rounded-md border px-3 py-2 bg-white dark:bg-zinc-900"
+                            value={unit?.id || ""}
+                            onChange={(e) => {
+                                const selectedId = Number(e.target.value);
+                                const selectedUnit = unitOptions.find((option) => option.id === selectedId);
+                                setUnit(selectedUnit || null);
+                            }}
+                        >
+                            <option value="">Select a unit</option>
+                            {unitOptions.map((option) => (
+                                <option key={option.id} value={option.id}>
+                                    {option.name}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
                     <BrandDropdown
                         value={brand}
                         onChange={(o) => setBrand(o)}

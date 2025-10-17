@@ -24,10 +24,8 @@ import {
     ArrowUp,
     Landmark,
     BarChart2,
-    LogOut,
     type LucideIcon,
 } from "lucide-react";
-import JobOrderManagement from "@/modules/job-order-management";
 
 export type NavLeaf = { label: string; href: string; icon?: LucideIcon };
 export type NavNode = { label: string; children: NavItem[]; icon?: LucideIcon };
@@ -72,7 +70,6 @@ export const nav: NavItem[] = [
                 label: "Job Order",
                 href: "/operation/job-order",
                 icon: Clipboard,
-                component: JobOrderManagement,
             },
             { label: "Serializing", href: "/operation/serializing", icon: Barcode },
             { label: "Purchase Order", href: "/operation/purchase-order", icon: Clipboard },

@@ -340,9 +340,6 @@ export default function SalesOrderManagementModule() {
     // --- JSX Return ---
     return (
         <form className="space-y-6 p-6 bg-white rounded shadow-lg" onSubmit={handleSubmit}>
-            <h1 className="text-2xl font-bold">Aircon Installation - Client Profiling</h1>
-            <p className="text-sm text-gray-600">Fill out the details below to help us assess your installation needs.</p>
-            <Separator />
 
             <div className="space-y-2 p-4 border rounded bg-slate-50">
                 <Label htmlFor="clientSearch" className="font-semibold">Search Existing Client</Label>

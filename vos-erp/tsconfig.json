@@ -24,7 +24,8 @@
       "@/data/*": ["data/*"],
       "@/public/*": ["public/*"]
     },
-    "typeRoots": ["./node_modules/@types", "./data"]
+    "typeRoots": ["./node_modules/@types", "./data"],
+    "allowImportingTsExtensions": true
   },
   "include": [
     "next-env.d.ts",

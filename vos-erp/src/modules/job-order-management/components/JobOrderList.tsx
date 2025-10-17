@@ -10,6 +10,7 @@ interface JobOrderListProps {
     searchTerm: string;
     setSearchTerm: (term: string) => void;
     getCustomerName: (customerId: number) => string;
+    onCreate?: () => void; // optional callback to open create form
 }
 
 const JobOrderList: React.FC<JobOrderListProps> = ({
@@ -19,6 +20,7 @@ const JobOrderList: React.FC<JobOrderListProps> = ({
     searchTerm,
     setSearchTerm,
     getCustomerName,
+    onCreate,
 }) => {
     const filteredJobOrders = useMemo(() => {
         if (!searchTerm) return jobOrders;
@@ -30,15 +32,24 @@ const JobOrderList: React.FC<JobOrderListProps> = ({
 
     return (
         <aside className="w-full md:w-1/3 lg:w-1/4 bg-white border-r border-gray-200 flex flex-col">
-            <div className="p-4 border-b">
-                <h2 className="text-xl font-bold text-gray-800">Job Orders</h2>
-                <input
-                    type="text"
-                    placeholder="Search by JO# or Customer..."
-                    className="w-full mt-2 p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                />
+            <div className="p-4 border-b flex items-start justify-between gap-4">
+                <div className="flex-1">
+                    <h2 className="text-xl font-bold text-gray-800">Job Orders</h2>
+                    <input
+                        type="text"
+                        placeholder="Search by JO# or Customer..."
+                        className="w-full mt-2 p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                    />
+                </div>
+                {onCreate && (
+                    <div className="shrink-0 ml-2">
+                        <button onClick={onCreate} className="px-3 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 focus:outline-none">
+                            New JO
+                        </button>
+                    </div>
+                )}
             </div>
             <nav className="flex-1 overflow-y-auto">
                 {filteredJobOrders.length > 0 ? filteredJobOrders.map(jo => (

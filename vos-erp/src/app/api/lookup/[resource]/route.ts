@@ -4,7 +4,8 @@ export const runtime = "nodejs";
 import {NextResponse} from "next/server";
 import {cookies as nextCookies} from "next/headers";
 
-const DIRECTUS = process.env.NEXT_PUBLIC_DIRECTUS_URL ?? "";
+// Default to the provided Directus server if the env var is not set.
+const DIRECTUS = process.env.NEXT_PUBLIC_DIRECTUS_URL ?? "http://100.119.3.44:8090";
 const ACCESS = process.env.AUTH_ACCESS_COOKIE ?? "vos_access";
 
 // map your resources -> directus collection + fields + mapping
@@ -33,7 +34,8 @@ const MAP: Record<
 export async function GET(req: Request, context: { params: { resource: string } }) {
     if (!DIRECTUS) return NextResponse.json([], {status: 200});
 
-    const { resource } = context.params;
+    // Await context.params as required by Next.js 14+
+    const { resource } = await context.params;
     const cfg = MAP[resource];
     if (!cfg) return NextResponse.json([], {status: 200});
 
@@ -56,7 +58,7 @@ export async function GET(req: Request, context: { params: { resource: string } 
         );
     }
 
-    const r = await fetch(`${DIRECTUS}/items/${cfg.path}?${parts.join("&")}`, {
+    const r = await fetch(`${DIRECTUS}/items/${cfg.path}?${parts.join("&")}` , {
         headers: auth ? {Authorization: `Bearer ${auth}`} : undefined,
         cache: "no-store",
     });

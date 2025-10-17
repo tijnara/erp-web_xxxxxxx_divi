@@ -7,7 +7,9 @@ interface AsyncSelectProps<T> {
   placeholder?: string;
   fetchUrl: string;
   initial?: T | null;
-  mapOption: (item: T) => { id: string | number; name: string; meta?: any };
+  // mapOption is optional. If not provided, a default mapper will try to
+  // read common shapes (id/name, value/label) or treat the item as already-mapped.
+  mapOption?: (item: T) => { id: string | number; name: string; meta?: any };
   onChange: (option: T | null) => void;
   disabled?: boolean;
 }
@@ -53,18 +55,18 @@ export function AsyncSelect<T>({
         // Use a base URL if fetchUrl is relative, otherwise use it as is.
         const url = new URL(fetchUrl.startsWith('http') ? fetchUrl : `${window.location.origin}${fetchUrl}`);
         if (q.trim()) {
-          // *** FIXED: Changed query parameter from "q" to "search" ***
-          url.searchParams.set("search", q.trim());
+          // use 'q' param to match the server-side lookup API
+          url.searchParams.set("q", q.trim());
         }
 
         // Removed "credentials: 'include'" unless you specifically need it for cookies
         const res = await fetch(url.toString());
         const json = await res.json();
 
-        let data = json.data || json;
-        if (Array.isArray(data) && mapOption) {
-          data = data.map(mapOption);
-        }
+        const data = json.data || json;
+        // Keep fetched options as the original items. We'll map them only when
+        // rendering/filtering so callers who pass `initial` already-mapped objects
+        // continue to work.
         setOpts(Array.isArray(data) ? data : []);
       } catch {
         setOpts([]);
@@ -77,10 +79,49 @@ export function AsyncSelect<T>({
     };
   }, [q, open, fetchUrl, mapOption]);
 
-  const display = useMemo(() => sel ? mapOption(sel).name : "", [sel, mapOption]);
+  // Create a safe mapper that will be used everywhere in this component. It
+  // accepts both raw fetched items and already-mapped items (with id/name).
+  const mapOpt = React.useMemo(() => {
+     return (
+      (item: unknown) => {
+        // If the item already has an {id, name} shape, return that first. This
+        // is important when callers pass an already-mapped `initial` value but
+        // also provide a `mapOption` function for raw server items.
+        if (item !== null && typeof item === "object") {
+          const it = item as Record<string, unknown>;
+          if (it.id !== undefined && it.name !== undefined) {
+            return { id: it.id as string | number, name: String(it.name), meta: it.meta };
+          }
+        }
+
+        // If a custom mapper is provided, use it for raw items.
+        if (typeof mapOption === "function") return (mapOption as (it: T) => { id: string | number; name: string; meta?: any })(item as T);
+
+        // For other shapes, try to normalize common alternatives.
+        if (item !== null && typeof item === "object") {
+          const it = item as Record<string, unknown>;
+          // common alternative shapes
+          if (it.value !== undefined && it.label !== undefined) {
+            return { id: it.value as string | number, name: String(it.label), meta: it.meta };
+          }
+          // fallback: try to derive a name and id
+          return {
+            id: (it.id ?? it.value ?? it.key ?? JSON.stringify(it)) as string | number,
+            name: String(it.name ?? it.label ?? it.id ?? it.value ?? ""),
+            meta: it.meta,
+          };
+        }
+
+        // primitive
+        return { id: item as string | number, name: String(item) };
+       }
+     );
+   }, [mapOption]);
+
+  const display = useMemo(() => (sel ? mapOpt(sel).name : ""), [sel, mapOpt]);
 
   const filteredOptions = opts.filter((item) => {
-    const { name } = mapOption(item);
+    const { name } = mapOpt(item as unknown);
     return name && q ? name.toLowerCase().includes(q.toLowerCase()) : false;
   });
 
@@ -96,7 +137,7 @@ export function AsyncSelect<T>({
           onChange={(e) => setQ(e.target.value)}
           onFocus={() => {
             setOpen(true);
-            if (sel) setQ(mapOption(sel).name);
+            if (sel) setQ(mapOpt(sel).name);
           }}
           placeholder={placeholder}
           disabled={disabled}
@@ -124,26 +165,29 @@ export function AsyncSelect<T>({
           )}
           {!loading &&
             filteredOptions.map((item) => {
-              const { id, name, meta } = mapOption(item);
-              return (
-                <button
-                  key={id !== undefined && id !== null ? `${id}` : `option-${id}`}
-                  type="button"
-                  className="block w-full text-left px-3 py-2 hover:bg-zinc-100 dark:hover:bg-zinc-800"
-                  onClick={() => {
+              const { id, name, meta } = mapOpt(item);
+               return (
+                 <button
+                   key={id !== undefined && id !== null ? `${id}` : `option-${id}`}
+                   type="button"
+                   className="block w-full text-left px-3 py-2 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                   onClick={() => {
+                    // store the original item so callers receive the raw object
+                    // they expect. If consumers passed in an already-mapped value
+                    // as `initial`, it will still work because mapOpt handles it.
                     setSel(item);
                     onChange(item);
-                    setOpen(false);
-                  }}
-                  aria-label={`Select ${name}`}
-                >
-                  {name}
-                  {meta?.subtitle && (
-                    <div className="text-xs text-gray-500">{meta.subtitle}</div>
-                  )}
-                </button>
-              );
-            })}
+                     setOpen(false);
+                   }}
+                   aria-label={`Select ${name}`}
+                 >
+                   {name}
+                   {meta?.subtitle && (
+                     <div className="text-xs text-gray-500">{meta.subtitle}</div>
+                   )}
+                 </button>
+               );
+             })}
         </div>
       )}
     </div>

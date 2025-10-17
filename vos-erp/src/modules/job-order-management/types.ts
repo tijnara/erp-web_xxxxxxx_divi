@@ -12,3 +12,21 @@ export interface JobOrder {
   site_address: string | null;
 }
 
+// --- Added for Create Job Order form ---
+export interface JobOrderDetail {
+  id?: number;
+  line_type: 'Part' | 'Labor' | 'Other' | 'Product' | 'Fee' | 'Discount';
+  product_id?: number;
+  part_name: string;
+  quantity: number;
+  unit_price: number;
+  remarks?: string | null;
+}
+
+export interface JobOrderAssignment {
+  id?: number;
+  user_id: number | string; // string allowed for temporary empty input
+  role: string;
+}
+
+export type PartialJobOrder = Partial<JobOrder>;
