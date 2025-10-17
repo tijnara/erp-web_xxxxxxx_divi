@@ -17,7 +17,7 @@ export function useJobOrders(page = 1, limit = 50) {
                     limit: String(limit),
                     page: String(page),
                     sort: '-order_date',
-                    fields: 'id,jo_no,customer_id,status,order_date,scheduled_start,site_address,site_contact_name',
+                    fields: 'id,jo_no,customer_id,status,order_date,scheduled_start,site_address,site_contact_name,sales_order_id',
                 });
                 const res = await fetch(`${API_BASE_URL}/items/job_order?${params.toString()}`, {
                     headers: { 'Content-Type': 'application/json' },

@@ -42,5 +42,7 @@ export function useSession() {
         };
     }, []);
 
-    return { session, loading };
+    const user = session?.user || null; // Extract user for convenience
+
+    return { session, user, loading }; // Include user in the returned object
 }

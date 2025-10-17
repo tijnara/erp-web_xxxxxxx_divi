@@ -118,6 +118,7 @@ export function CustomerView({ provider }: { provider: ReturnType<typeof import(
                 <th className="text-left p-3 font-medium">Customer Name</th>
                 <th className="text-left p-3 font-medium">Customer Code</th>
                 <th className="text-left p-3 font-medium">Contact Info</th>
+                <th className="text-left p-3 font-medium">Store Name</th>
                 <th className="text-left p-3 font-medium">Type</th>
                 <th className="text-left p-3 font-medium">Status</th>
                 <th className="text-left p-3 font-medium">Actions</th>
@@ -132,6 +133,7 @@ export function CustomerView({ provider }: { provider: ReturnType<typeof import(
                     <div>{r.contact_number}</div>
                     <div>{r.customer_email}</div>
                   </td>
+                  <td className="p-3">{r.store_name}</td>
                   <td className="p-3">
                     <span className="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">
                       {storeTypeMap[r.store_type]}
@@ -286,8 +288,8 @@ export function CustomerView({ provider }: { provider: ReturnType<typeof import(
         open={open}
         mode={mode}
         initial={current ?? undefined}
-        onClose={() => setOpen(false)}
-        onSubmit={async (dto) => {
+        onCloseAction={() => setOpen(false)}
+        onSubmitAction={async (dto) => {
           if (mode === "create") {
             await provider.createCustomer(dto);
           } else if (current) {

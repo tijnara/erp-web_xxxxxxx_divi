@@ -10,12 +10,14 @@ export function Modal({
                           title,
                           children,
                           width = "max-w-xl",
+                          hideCloseButton = false,
                       }: {
     open: boolean;
     onClose?: () => void;
     title?: string;
     children: React.ReactNode;
     width?: string; // Tailwind width class (e.g. max-w-xl)
+    hideCloseButton?: boolean;
 }) {
     useEffect(() => {
         function onKey(e: KeyboardEvent) {
@@ -40,13 +42,15 @@ export function Modal({
             >
                 <div className="flex items-center justify-between px-4 py-3 border-b dark:border-zinc-800">
                     <h3 className="font-semibold">{title}</h3>
-                    <button
-                        className="rounded-md px-2 py-1 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-900"
-                        onClick={onClose}
-                        aria-label="Close"
-                    >
-                        ✕
-                    </button>
+                    {!hideCloseButton && (
+                        <button
+                            className="rounded-md px-2 py-1 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-900"
+                            onClick={onClose}
+                            aria-label="Close"
+                        >
+                            ✕
+                        </button>
+                    )}
                 </div>
                 <div className="p-4">{children}</div>
             </div>

@@ -12,6 +12,8 @@ export interface JobOrder {
   site_address: string | null;
   site_contact_name?: string | null;
   site_contact_phone?: string | null;
+  sales_order_id?: number; // Added for linking to sales order
+  purchase_order_id?: number; // Optionally add for future-proofing
 }
 
 // --- Added for Create Job Order form ---
@@ -32,3 +34,9 @@ export interface JobOrderAssignment {
 }
 
 export type PartialJobOrder = Partial<JobOrder>;
+
+export type SalesOrder = {
+  order_id: number;
+  order_no: string;
+  // Add more fields as needed from the sample data if required
+};

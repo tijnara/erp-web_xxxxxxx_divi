@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useState, type FC, type FormEvent } from 'react';
+import React, { useState, type FC, type FormEvent, useEffect } from 'react';
 import { PlusCircle } from 'lucide-react';
-import { JobOrderDetail, JobOrderAssignment, PartialJobOrder } from '../types';
+import { JobOrderDetail, JobOrderAssignment, PartialJobOrder, SalesOrder } from '../types';
 import DetailRow from './DetailRow';
 import AssignmentRow from './AssignmentRow';
 
@@ -20,12 +20,31 @@ const CreateJobOrderForm: FC = () => {
 
   const [details, setDetails] = useState<JobOrderDetail[]>([]);
   const [assignments, setAssignments] = useState<JobOrderAssignment[]>([]);
+  const [salesOrders, setSalesOrders] = useState<SalesOrder[]>([]);
+  const [loadingSalesOrders, setLoadingSalesOrders] = useState(true);
+
+  useEffect(() => {
+    fetch('http://100.119.3.44:8090/items/sales_order')
+      .then((res) => res.json())
+      .then((data) => {
+        setSalesOrders(data.data || []);
+        setLoadingSalesOrders(false);
+      })
+      .catch((error) => {
+        console.error('Error fetching sales orders:', error);
+        setLoadingSalesOrders(false);
+      });
+  }, []);
 
   const handleJobOrderChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
   ) => {
     const { name, value } = e.target;
-    setJobOrder((prev) => ({ ...prev, [name]: value }));
+    // Ensure sales_order_id is stored as a number
+    setJobOrder((prev) => ({
+      ...prev,
+      [name]: name === 'sales_order_id' ? (value ? Number(value) : undefined) : value,
+    }));
   };
 
   const handleDetailChange = (
@@ -165,6 +184,27 @@ const CreateJobOrderForm: FC = () => {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-8">
+      {/* Sales Order - moved above Core Info */}
+      <section className={sectionClass}>
+        <div className="mb-4">
+          <label htmlFor="sales_order_id" className="block font-medium mb-1">Sales Order</label>
+          <select
+            id="sales_order_id"
+            name="sales_order_id"
+            value={jobOrder.sales_order_id || ''}
+            onChange={handleJobOrderChange}
+            className="border rounded px-2 py-1 w-full"
+          >
+            <option value="">Select Sales Order</option>
+            {salesOrders.map((so) => (
+              <option key={so.order_id} value={so.order_id}>
+                {so.order_no}
+              </option>
+            ))}
+          </select>
+        </div>
+      </section>
+
       {/* Core Info */}
       <section className={sectionClass}>
         <h2 className={sectionTitleClass}>Core Information</h2>
@@ -286,4 +326,3 @@ const CreateJobOrderForm: FC = () => {
 };
 
 export default CreateJobOrderForm;
-
