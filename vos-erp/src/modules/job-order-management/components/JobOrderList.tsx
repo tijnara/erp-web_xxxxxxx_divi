@@ -2,9 +2,9 @@
 
 import React, { useMemo } from 'react';
 import { JobOrder } from '../types';
+import { useJobOrders } from '../hooks/useJobOrders';
 
 interface JobOrderListProps {
-    jobOrders: JobOrder[];
     activeJobOrder: JobOrder | null;
     setActiveJobOrder: (jobOrder: JobOrder) => void;
     searchTerm: string;
@@ -14,7 +14,6 @@ interface JobOrderListProps {
 }
 
 const JobOrderList: React.FC<JobOrderListProps> = ({
-    jobOrders,
     activeJobOrder,
     setActiveJobOrder,
     searchTerm,
@@ -22,6 +21,8 @@ const JobOrderList: React.FC<JobOrderListProps> = ({
     getCustomerName,
     onCreate,
 }) => {
+    const { data: jobOrders, loading, error } = useJobOrders();
+
     const filteredJobOrders = useMemo(() => {
         if (!searchTerm) return jobOrders;
         return jobOrders.filter(jo =>
@@ -29,6 +30,9 @@ const JobOrderList: React.FC<JobOrderListProps> = ({
             getCustomerName(jo.customer_id).toLowerCase().includes(searchTerm.toLowerCase())
         );
     }, [searchTerm, jobOrders, getCustomerName]);
+
+    if (loading) return <p className="text-center text-gray-500 p-6">Loading job orders...</p>;
+    if (error) return <p className="text-center text-red-500 p-6">{error}</p>;
 
     return (
         <aside className="w-full md:w-1/3 lg:w-1/4 bg-white border-r border-gray-200 flex flex-col">

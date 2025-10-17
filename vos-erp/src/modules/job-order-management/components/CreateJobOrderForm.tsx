@@ -100,18 +100,62 @@ const CreateJobOrderForm: FC = () => {
     setAssignments((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const handleSubmit = (e: FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    const finalData = {
-      jobOrder,
-      details,
-      assignments,
-    };
-    // For now just log; integration with API can follow same shape
-    // and will likely convert user_id and customer_id to numbers server-side.
-    // Use console.table for compact preview of arrays.
-    console.log('Submitting Job Order Data:', finalData);
-    alert('Form data has been logged to the browser console. Open devtools to inspect the payload.');
+
+    try {
+      // Create Job Order
+      const jobOrderResponse = await fetch('http://100.119.3.44:8090/items/job_order', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(jobOrder),
+      });
+
+      if (!jobOrderResponse.ok) {
+        throw new Error('Failed to create job order');
+      }
+
+      const createdJobOrder = await jobOrderResponse.json();
+
+      // Create Job Order Details
+      for (const detail of details) {
+        const detailPayload = { ...detail, job_order_id: createdJobOrder.id };
+        const detailResponse = await fetch('http://100.119.3.44:8090/items/job_order_details', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(detailPayload),
+        });
+
+        if (!detailResponse.ok) {
+          throw new Error('Failed to create job order detail');
+        }
+      }
+
+      // Create Job Order Assignments
+      for (const assignment of assignments) {
+        const assignmentPayload = { ...assignment, job_order_id: createdJobOrder.id };
+        const assignmentResponse = await fetch('http://100.119.3.44:8090/items/job_order_assignments', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(assignmentPayload),
+        });
+
+        if (!assignmentResponse.ok) {
+          throw new Error('Failed to create job order assignment');
+        }
+      }
+
+      alert('Job order created successfully!');
+    } catch (error) {
+      console.error(error);
+      alert('An error occurred while creating the job order.');
+    }
   };
 
   const inputClass = 'w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors duration-200';

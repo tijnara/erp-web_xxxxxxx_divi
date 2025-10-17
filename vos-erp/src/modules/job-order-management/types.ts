@@ -10,6 +10,8 @@ export interface JobOrder {
   assigned_user_id: number | null;
   remarks: string | null;
   site_address: string | null;
+  site_contact_name?: string | null;
+  site_contact_phone?: string | null;
 }
 
 // --- Added for Create Job Order form ---
