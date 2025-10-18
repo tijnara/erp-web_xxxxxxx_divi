@@ -48,42 +48,40 @@ export default function LoginPage() {
 
             setLoading(false);
             if (!res.ok) {
-                const j = await res.json().catch(()=> ({}));
-                setErr(j?.error || 'Login failed');
+                const j = await res.json().catch(() => ({}));
+                setErr(j.message || 'Invalid email or password');
                 return;
             }
 
-            const data = await res.json();
-
-            // 🧠 Store user ID and department for later use
-            if (data.user) {
-                localStorage.setItem('user_id', data.user.id);
-                localStorage.setItem('user_department', data.user.user_department);
-                localStorage.setItem('user_email', data.user.email);
-            }
-
             router.replace(nextPath);
-        } catch (err) {
+        } catch (error) {
             setLoading(false);
-            setErr('Login failed. Please try again.');
+            setErr('An unexpected error occurred. Please try again.');
         }
     }
 
-
-    async function loginRfid(e: React.FormEvent) {
+    async function loginRFID(e: React.FormEvent) {
         e.preventDefault();
         setErr(null); setLoading(true);
-        const res = await fetch('/api/auth/login-rfid', {
-            method: 'POST', headers: { 'Content-Type':'application/json' },
-            body: JSON.stringify({ rf })
-        });
-        setLoading(false);
-        if (!res.ok) {
-            const j = await res.json().catch(()=> ({}));
-            setErr(j?.error || 'RFID login failed');
-            return;
+        try {
+            const res = await fetch('/api/auth/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ rfid: rf }),
+            });
+
+            setLoading(false);
+            if (!res.ok) {
+                const j = await res.json().catch(() => ({}));
+                setErr(j.message || 'Invalid RFID');
+                return;
+            }
+
+            router.replace(nextPath);
+        } catch (error) {
+            setLoading(false);
+            setErr('An unexpected error occurred. Please try again.');
         }
-        router.replace(nextPath);
     }
 
     return (
@@ -123,7 +121,7 @@ export default function LoginPage() {
                         <div className="text-xs text-zinc-500">Redirect to: <code>{nextPath}</code></div>
                     </form>
                 ) : (
-                    <form onSubmit={loginRfid} className="space-y-3">
+                    <form onSubmit={loginRFID} className="space-y-3">
                         <div className="space-y-1">
                             <label className="text-sm">Scan your RFID</label>
                             <input

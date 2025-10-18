@@ -299,6 +299,19 @@ export default function SalesOrderManagementModule() {
             console.log("Customer ID:", customerId); // Log the customer ID for debugging
 
             // --- STEP 2: Create Installation Request ---
+            // Fetch existing installation requests to determine the next ir_code
+            const existingRequestsResponse = await axios.get(`${API_BASE_URL}/items/installation_requests?fields=ir_code`);
+            const existingRequests = existingRequestsResponse.data.data || [];
+
+            // Determine the highest ir_code and generate the next one
+            const highestIrCode = existingRequests
+                .map((req: { ir_code: string }) => parseInt(req.ir_code?.split('-')[1] || '0', 10))
+                .filter((num) => !isNaN(num))
+                .reduce((max, num) => Math.max(max, num), 0);
+
+            const nextIrCode = `SO-${(highestIrCode + 1).toString().padStart(4, '0')}`;
+
+            // Add the generated ir_code to the payload
             const installationRequestPayload = {
                 client_id: customerId,
                 supply_voltage_id: requestData.supply_voltage_id || null,
@@ -311,9 +324,11 @@ export default function SalesOrderManagementModule() {
                 room_data: {
                     ...roomData,
                     windows: roomData.windows.filter(w => w.width_m && w.height_m) // Clean up empty windows
-                }
+                },
+                ir_code: nextIrCode // Include the generated ir_code
             };
 
+            console.log("Generated ir_code:", nextIrCode); // Log the generated ir_code for debugging
             console.log("Installation Request Payload:", installationRequestPayload); // Log the payload for debugging
 
             const requestResponse = await axios.post(`${API_BASE_URL}/items/installation_requests`, installationRequestPayload);

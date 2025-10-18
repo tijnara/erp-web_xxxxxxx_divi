@@ -53,6 +53,7 @@ export function CustomerFormDialog({
     const [loadingGeo, setLoadingGeo] = useState<boolean>(false);
     const [storeNameError, setStoreNameError] = useState<string>("");
     const [street_address, setStreetAddress] = useState("");
+    const [remarks, setRemarks] = useState<string>("");
 
     const provinceOptions = useMemo(() => [...provinces].sort((a, b) => a.province_name.localeCompare(b.province_name)), [provinces]);
     const cityOptions = useMemo(() => {
@@ -115,6 +116,7 @@ export function CustomerFormDialog({
         setIsVAT(initial?.isVAT ?? 0);
         setIsEWT(initial?.isEWT ?? 0);
         setStreetAddress(initial?.street_address ?? "");
+        setRemarks(initial?.otherDetails ?? "");
 
         const fetchEncoderDetails = async (id?: number) => {
             const url = id ? `http://100.119.3.44:8090/items/user/${id}` : "http://100.119.3.44:8090/items/user";
@@ -228,10 +230,24 @@ export function CustomerFormDialog({
             }
         } else {
             const finalPayload: UpsertCustomerDTO = {
-                customer_code, customer_name, store_name, store_signage, province, city, brgy,
-                contact_number, customer_email, store_type, discount_type, customer_classification,
-                isActive, isVAT, isEWT, encoder_id,
+                customer_code,
+                customer_name,
+                store_name,
+                store_signage,
+                province,
+                city,
+                brgy,
+                contact_number,
+                customer_email,
+                store_type,
+                discount_type,
+                customer_classification,
+                isActive,
+                isVAT,
+                isEWT,
+                encoder_id,
                 street_address,
+                otherDetails: remarks, // Include remarks in the payload
             };
             if (typeof onSubmitAction === "function") {
                 await onSubmitAction(finalPayload);
@@ -261,7 +277,7 @@ export function CustomerFormDialog({
             title={`${mode === "create" ? "Create" : "Edit"} Customer`}
             hideCloseButton={mode === "create"}
         >
-            <form onSubmit={handleSubmit}>
+            <form onSubmit={handleSubmit} className="overflow-y-auto max-h-[80vh]">
                 <div className="p-4">
                     <Tabs defaultValue="general" className="col-span-2">
                         <TabsList>
@@ -383,9 +399,21 @@ export function CustomerFormDialog({
                                         </label>
                                     </div>
                                 </div>
-                                <div className="form-group">
-                                    <label htmlFor="encoder">Encoder</label>
-                                    <Input id="encoder" value={encoderName} readOnly />
+                                {encoderName && (
+                                    <div className="form-group">
+                                        <label htmlFor="encoder">Encoder</label>
+                                        <Input id="encoder" value={encoderName} readOnly />
+                                    </div>
+                                )}
+                                <div className="form-group col-span-2">
+                                    <label htmlFor="remarks">Remarks / Notes</label>
+                                    <textarea
+                                        id="remarks"
+                                        value={remarks}
+                                        onChange={(e) => setRemarks(e.target.value)}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                                        placeholder="Enter any additional notes or remarks about the customer"
+                                    />
                                 </div>
                             </div>
                         </TabsContent>

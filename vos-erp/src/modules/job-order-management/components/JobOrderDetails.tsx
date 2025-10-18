@@ -1,7 +1,8 @@
+// src/modules/customer-management/components/JobOrderDetails.tsx
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { JobOrder, JobOrderDetail, JobOrderAssignment } from '../types';
+import { JobOrder, JobOrderDetail, JobOrderAssignment, InstallationRequest } from '../types'; // <-- Import InstallationRequest
 
 interface JobOrderDetailsProps {
     activeJobOrder: JobOrder | null;
@@ -16,14 +17,16 @@ const JobOrderDetails: React.FC<JobOrderDetailsProps> = ({
                                                          }) => {
     const [details, setDetails] = useState<JobOrderDetail[]>([]);
     const [assignments, setAssignments] = useState<JobOrderAssignment[]>([]);
-    const [salesOrder, setSalesOrder] = useState<any | null>(null);
+    // ✅ MODIFIED: State to hold InstallationRequest
+    const [installationRequest, setInstallationRequest] = useState<InstallationRequest | null>(null);
     const [isLoading, setIsLoading] = useState<boolean>(false);
-    const [isSalesOrderLoading, setIsSalesOrderLoading] = useState<boolean>(false);
+    const [isRequestLoading, setIsRequestLoading] = useState<boolean>(false);
 
     useEffect(() => {
         if (!activeJobOrder) {
             setDetails([]);
             setAssignments([]);
+            setInstallationRequest(null); // <-- Reset
             return;
         }
 
@@ -56,29 +59,31 @@ const JobOrderDetails: React.FC<JobOrderDetailsProps> = ({
     }, [activeJobOrder]);
 
     useEffect(() => {
+        // ✅ MODIFIED: This entire block is updated to fetch an Installation Request
         if (activeJobOrder && activeJobOrder.sales_order_id) {
-            const fetchSalesOrder = async () => {
-                setIsSalesOrderLoading(true);
+            const fetchInstallationRequest = async () => {
+                setIsRequestLoading(true);
                 try {
-                    // Fetch from the correct sales_order endpoint using order_id
-                    const res = await fetch(`http://100.119.3.44:8090/items/sales_order?filter[order_id][_eq]=${activeJobOrder.sales_order_id}`);
-                    if (!res.ok) throw new Error('Failed to fetch sales order');
+                    // Fetch from the correct installation_requests endpoint
+                    const res = await fetch(`http://100.119.3.44:8090/items/installation_requests/${activeJobOrder.sales_order_id}`);
+                    if (!res.ok) throw new Error('Failed to fetch installation request');
                     const data = await res.json();
-                    setSalesOrder(data.data?.[0] || null);
+                    setInstallationRequest(data.data || null);
                 } catch (error) {
-                    console.error('Error fetching sales order:', error);
-                    setSalesOrder(null);
+                    console.error('Error fetching installation request:', error);
+                    setInstallationRequest(null);
                 } finally {
-                    setIsSalesOrderLoading(false);
+                    setIsRequestLoading(false);
                 }
             };
-            fetchSalesOrder();
+            fetchInstallationRequest();
         } else {
-            setSalesOrder(null);
+            setInstallationRequest(null);
         }
     }, [activeJobOrder]);
 
     if (!activeJobOrder) {
+        // ... (rest of the component is the same)
         return (
             <div className="flex items-center justify-center h-full text-center p-6">
                 <div className="text-gray-500">
@@ -107,33 +112,27 @@ const JobOrderDetails: React.FC<JobOrderDetailsProps> = ({
                 </div>
             ) : (
                 <div className="space-y-8">
-                    {/* Sales Order Section (Moved to the top) */}
+                    {/* ✅ MODIFIED: This section now displays Installation Request data */}
                     {activeJobOrder?.sales_order_id && (
                         <section className="p-6 bg-white rounded-xl shadow-lg">
-                            <h2 className="text-xl font-semibold text-gray-800 border-b border-gray-200 pb-3 mb-6">Related Sales Order</h2>
-                            {isSalesOrderLoading ? (
-                                <p className="text-gray-600">Loading sales order...</p>
-                            ) : salesOrder ? (
+                            <h2 className="text-xl font-semibold text-gray-800 border-b border-gray-200 pb-3 mb-6">Related Installation Request</h2>
+                            {isRequestLoading ? (
+                                <p className="text-gray-600">Loading installation request...</p>
+                            ) : installationRequest ? (
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4 text-sm">
-                                    <div><strong className="text-gray-600 block">Reference:</strong> {salesOrder.order_no}</div>
-                                    <div><strong className="text-gray-600 block">Date:</strong> {formatDate(salesOrder.order_date)}</div>
-                                    <div><strong className="text-gray-600 block">Customer Code:</strong> {salesOrder.customer_code}</div>
-                                    <div><strong className="text-gray-600 block">Installation Address:</strong> {salesOrder.installation_address || 'N/A'}</div>
-                                    <div><strong className="text-gray-600 block">Service Type:</strong> {salesOrder.service_type || 'N/A'}</div>
-                                    <div><strong className="text-gray-600 block">Status:</strong> {salesOrder.order_status || 'N/A'}</div>
-                                    <div><strong className="text-gray-600 block">PO No:</strong> {salesOrder.po_no || 'N/A'}</div>
-                                    <div><strong className="text-gray-600 block">Payment Terms:</strong> {salesOrder.payment_terms || 'N/A'} days</div>
-                                    <div><strong className="text-gray-600 block">Net Amount:</strong> ₱{salesOrder.net_amount?.toLocaleString('en-US', { minimumFractionDigits: 2 })}</div>
-                                    <div><strong className="text-gray-600 block">Total Amount:</strong> ₱{salesOrder.total_amount?.toLocaleString('en-US', { minimumFractionDigits: 2 })}</div>
-                                    <div className="md:col-span-2"><strong className="text-gray-600 block">Remarks:</strong> {salesOrder.remarks || 'No remarks provided.'}</div>
+                                    <div><strong className="text-gray-600 block">IR Code:</strong> {installationRequest.ir_code || 'N/A'}</div>
+                                    <div><strong className="text-gray-600 block">Request Date:</strong> {formatDate(installationRequest.created_at)}</div>
+                                    <div><strong className="text-gray-600 block">Preferred Date:</strong> {formatDate(installationRequest.preferred_date)}</div>
+                                    <div><strong className="text-gray-600 block">Budget:</strong> ₱{Number(installationRequest.budget_php).toLocaleString('en-US', { minimumFractionDigits: 2 })}</div>
+                                    <div className="md:col-span-2"><strong className="text-gray-600 block">Notes:</strong> {installationRequest.notes || 'No notes provided.'}</div>
                                 </div>
                             ) : (
-                                <p className="text-gray-500">No related sales order found.</p>
+                                <p className="text-gray-500">No related installation request found.</p>
                             )}
                         </section>
                     )}
 
-                    {/* Core Information Section */}
+                    {/* Core Information Section (remains the same) */}
                     <section className="p-6 bg-white rounded-xl shadow-lg">
                         <h2 className="text-xl font-semibold text-gray-800 border-b border-gray-200 pb-3 mb-6">Core Information</h2>
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-4 text-sm">
@@ -149,7 +148,7 @@ const JobOrderDetails: React.FC<JobOrderDetailsProps> = ({
                         </div>
                     </section>
 
-                    {/* Job Details Section */}
+                    {/* Job Details Section (remains the same) */}
                     <section className="p-6 bg-white rounded-xl shadow-lg">
                         <h2 className="text-xl font-semibold text-gray-800 border-b border-gray-200 pb-3 mb-6">Job Details (Parts & Labor)</h2>
                         <div className="space-y-3">
@@ -171,7 +170,7 @@ const JobOrderDetails: React.FC<JobOrderDetailsProps> = ({
                         </div>
                     </section>
 
-                    {/* Assigned Technicians Section */}
+                    {/* Assigned Technicians Section (remains the same) */}
                     <section className="p-6 bg-white rounded-xl shadow-lg">
                         <h2 className="text-xl font-semibold text-gray-800 border-b border-gray-200 pb-3 mb-6">Assigned Technicians</h2>
                         <div className="space-y-3">
@@ -185,7 +184,7 @@ const JobOrderDetails: React.FC<JobOrderDetailsProps> = ({
                         </div>
                     </section>
 
-                    {/* Remarks Section */}
+                    {/* Remarks Section (remains the same) */}
                     <section className="p-6 bg-white rounded-xl shadow-lg">
                         <h2 className="text-xl font-semibold text-gray-800 border-b border-gray-200 pb-3 mb-6">Remarks</h2>
                         <p className="text-gray-700 whitespace-pre-wrap">{activeJobOrder.remarks || 'No remarks provided.'}</p>
