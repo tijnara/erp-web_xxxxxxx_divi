@@ -52,6 +52,7 @@ export function CustomerFormDialog({
     const [barangays, setBarangays] = useState<Barangay[]>([]);
     const [loadingGeo, setLoadingGeo] = useState<boolean>(false);
     const [storeNameError, setStoreNameError] = useState<string>("");
+    const [street_address, setStreetAddress] = useState("");
 
     const provinceOptions = useMemo(() => [...provinces].sort((a, b) => a.province_name.localeCompare(b.province_name)), [provinces]);
     const cityOptions = useMemo(() => {
@@ -113,6 +114,7 @@ export function CustomerFormDialog({
         setIsActive(initial?.isActive ?? 1);
         setIsVAT(initial?.isVAT ?? 0);
         setIsEWT(initial?.isEWT ?? 0);
+        setStreetAddress(initial?.street_address ?? "");
 
         const fetchEncoderDetails = async (id?: number) => {
             const url = id ? `http://100.119.3.44:8090/items/user/${id}` : "http://100.119.3.44:8090/items/user";
@@ -209,7 +211,9 @@ export function CustomerFormDialog({
                     customer_name, store_name, store_signage, province, city, brgy,
                     contact_number, customer_email, store_type, discount_type, customer_classification,
                     isActive, isVAT, isEWT, encoder_id,
+                    street_address,
                 };
+                console.log("Payload being sent to API:", finalPayload);
                 if (typeof onSubmitAction === "function") {
                     await onSubmitAction(finalPayload);
                 } else {
@@ -227,6 +231,7 @@ export function CustomerFormDialog({
                 customer_code, customer_name, store_name, store_signage, province, city, brgy,
                 contact_number, customer_email, store_type, discount_type, customer_classification,
                 isActive, isVAT, isEWT, encoder_id,
+                street_address,
             };
             if (typeof onSubmitAction === "function") {
                 await onSubmitAction(finalPayload);
@@ -285,6 +290,10 @@ export function CustomerFormDialog({
                                 <div className="form-group">
                                     <label htmlFor="store_signage">Store Signage</label>
                                     <Input id="store_signage" value={store_signage} onChange={(e) => setStoreSignage(e.target.value)} />
+                                </div>
+                                <div className="form-group col-span-2">
+                                    <label htmlFor="street_address">Street Address</label>
+                                    <Input id="street_address" value={street_address} onChange={e => setStreetAddress(e.target.value)} className="w-full" />
                                 </div>
                                 <div className="form-group">
                                     <label htmlFor="province" className="block text-sm font-medium text-gray-700">Province</label>

@@ -30,6 +30,7 @@ export type Customer = {
   otherDetails?: string | null;
   classification?: number | null;
   location: string | null;
+  street_address?: string | null;
 };
 
 export type CustomerDiscountProduct = {

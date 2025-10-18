@@ -1,3 +1,4 @@
+// src/modules/customer-management/components/SalesOrderManagementModule.tsx
 "use client";
 
 import React, { useState, ChangeEvent, FormEvent, useEffect } from 'react';
@@ -15,18 +16,16 @@ import barangaysData from "@/public/barangay.json";
 
 // --- Type Definitions ---
 
-// Client data structure aligned with the API/database
+// ✅ FIX: This interface now matches what your form state (clientInfo) actually uses.
 interface ClientInfo {
-    id?: number; // Optional ID for existing clients
-    first_name: string;
-    last_name: string;
+    id?: number;
+    complete_name: string; // Changed from first_name/last_name
     email: string;
     phone: string;
     street_address: string;
-    province_state: string;
-    city_municipality: string;
-    barangay: string;
-    postal_code: string;
+    province_state: string; // This will hold the province_code
+    city_municipality: string; // This will hold the city_code
+    barangay: string; // This will hold the brgy_code
 }
 
 interface RoomData {
@@ -51,9 +50,24 @@ interface RequestData {
     preferred_time: string;
 }
 
-// Interfaces for dynamic dropdown options and address data
 interface DropdownOption { id: number; name: string; }
-interface UserOption { label: string; value: ClientInfo; }
+
+// ✅ FIX: Define the shape of the customer API data
+interface ApiCustomer {
+    id: number;
+    customer_name: string;
+    customer_email: string;
+    contact_number: string;
+    street_address: string | null;
+    province: string;
+    city: string;
+    brgy: string;
+    [key: string]: any; // Allow other properties
+}
+
+// ✅ FIX: The 'value' is now the full ApiCustomer object
+interface UserOption { label: string; value: ApiCustomer; }
+
 interface Province { province_code: string; province_name: string; }
 interface City { city_code: string; city_name: string; province_code: string; }
 interface Barangay { brgy_code: string; brgy_name: string; city_code: string; }
@@ -61,9 +75,10 @@ interface Barangay { brgy_code: string; brgy_name: string; city_code: string; }
 // --- Main Component ---
 export default function SalesOrderManagementModule() {
     // --- State Management ---
+    // ✅ FIX: Updated initial state to match the new ClientInfo interface
     const [clientInfo, setClientInfo] = useState<ClientInfo>({
-        first_name: '', last_name: '', email: '', phone: '',
-        street_address: '', province_state: '', city_municipality: '', barangay: '', postal_code: ''
+        complete_name: '', email: '', phone: '',
+        street_address: '', province_state: '', city_municipality: '', barangay: ''
     });
     const [roomData, setRoomData] = useState<RoomData>({
         property_type_id: '', room_use_id: '', length_m: '', width_m: '', ceiling_height_m: 2.4,
@@ -137,15 +152,16 @@ export default function SalesOrderManagementModule() {
 
     // --- Event Handlers ---
 
+    // ✅ FIX: This function now correctly types the response and returns the full 'user' object as the value.
     const loadUserOptions = async (inputValue: string): Promise<UserOption[]> => {
         if (inputValue.length < 2) return [];
         try {
-            // Using a filter query for Directus
-            const response = await axios.get(`http://100.119.3.44:8090/items/customer_information?search=${inputValue}`);
+            // Updated to use new customer API and fields
+            const response = await axios.get(`http://100.119.3.44:8090/items/customer?search=${inputValue}`);
             const users = response.data.data || [];
-            return users.map((user: any) => ({
-                label: `${user.first_name} ${user.last_name} (${user.email})`,
-                value: { ...user } // Store the full user object
+            return users.map((user: ApiCustomer) => ({
+                label: `${user.customer_name} (${user.customer_email})`,
+                value: user // The value is the full customer object
             }));
         } catch (error) {
             console.error("Failed to fetch users", error);
@@ -153,39 +169,57 @@ export default function SalesOrderManagementModule() {
         }
     };
 
+    // ✅ FIX: This function is entirely replaced.
+    // It no longer makes a new API call.
+    // It uses the data from 'selectedOption.value' to populate all fields and dropdowns.
     const handleUserSelect = (selectedOption: UserOption | null) => {
         setSelectedUser(selectedOption);
-        if (selectedOption) {
-            const userValue = selectedOption.value;
-
-            // Find codes from names to set dropdowns correctly
-            const province = (provincesData as Province[]).find(p => p.province_name === userValue.province_state);
-            const city = (citiesData as City[]).find(c => c.city_name === userValue.city_municipality);
-            const barangay = (barangaysData as Barangay[]).find(b => b.brgy_name === userValue.barangay);
-
-            const clientDataWithCodes = {
-                ...userValue,
-                province_state: province?.province_code || '',
-                city_municipality: city?.city_code || '',
-                barangay: barangay?.brgy_code || ''
-            };
-            setClientInfo(clientDataWithCodes);
-
-            if (province) {
-                const cities = (citiesData as City[]).filter(c => c.province_code === province.province_code);
-                setFilteredCities(cities);
-            }
-            if (city) {
-                const barangays = (barangaysData as Barangay[]).filter(brgy => brgy.city_code === city.city_code);
-                setFilteredBarangays(barangays);
-            }
-        } else {
+        if (!selectedOption) {
             clearForm();
+            return;
         }
+
+        // No fetch needed! Data is already here.
+        const clientData = selectedOption.value; // clientData is the full ApiCustomer object
+
+        // --- Find Codes from Names ---
+        const allProvinces = provincesData as Province[];
+        const allCities = citiesData as City[];
+        const allBarangays = barangaysData as Barangay[];
+
+        // 1. Find Province Code from Name
+        const provinceCode = allProvinces.find(p => p.province_name.toLowerCase() === clientData.province?.toLowerCase())?.province_code || "";
+
+        // 2. Filter Cities based on Province Code
+        const citiesForProvince = provinceCode ? allCities.filter(c => c.province_code === provinceCode) : [];
+        setFilteredCities(citiesForProvince); // Update dropdown state
+
+        // 3. Find City Code from Name
+        const cityCode = citiesForProvince.find(c => c.city_name.toLowerCase() === clientData.city?.toLowerCase())?.city_code || "";
+
+        // 4. Filter Barangays based on City Code
+        const barangaysForCity = cityCode ? allBarangays.filter(b => b.city_code === cityCode) : [];
+        setFilteredBarangays(barangaysForCity); // Update dropdown state
+
+        // 5. Find Barangay Code from Name
+        const barangayCode = barangaysForCity.find(b => b.brgy_name.toLowerCase() === clientData.brgy?.toLowerCase())?.brgy_code || "";
+
+        // --- Set Full Client State ---
+        setClientInfo({
+            id: clientData.id, // Store the ID for updates
+            complete_name: clientData.customer_name || "",
+            email: clientData.customer_email || "",
+            phone: clientData.contact_number || "",
+            street_address: clientData.street_address || "", // Handle null
+            province_state: provinceCode, // Set the code
+            city_municipality: cityCode, // Set the code
+            barangay: barangayCode, // Set the code
+        });
     };
 
     const clearForm = () => {
-        setClientInfo({ first_name: '', last_name: '', email: '', phone: '', street_address: '', province_state: '', city_municipality: '', barangay: '', postal_code: '' });
+        // ✅ FIX: Matches the new ClientInfo state
+        setClientInfo({ complete_name: '', email: '', phone: '', street_address: '', province_state: '', city_municipality: '', barangay: '' });
         setRoomData({ property_type_id: '', room_use_id: '', length_m: '', width_m: '', ceiling_height_m: 2.4, sun_exposure_id: '', insulation_type_id: '', typical_occupants: 1, windows: [{ width_m: '', height_m: '' }]});
         setRequestData({ supply_voltage_id: '', available_breaker_amps: '', preferred_unit_type_id: '', budget_php: '', notes: '', preferred_date: '', preferred_time: '' });
         setSelectedUser(null);
@@ -224,7 +258,6 @@ export default function SalesOrderManagementModule() {
     const handleSubmit = async (e: FormEvent) => {
         e.preventDefault();
         setIsSubmitting(true);
-
         const API_BASE_URL = 'http://100.119.3.44:8090';
 
         // --- Find full string names for address parts for the payload ---
@@ -242,35 +275,32 @@ export default function SalesOrderManagementModule() {
             // --- STEP 1: Create or Update Customer ---
             let customerId: number;
             const customerPayload = {
-                first_name: clientInfo.first_name,
-                last_name: clientInfo.last_name,
-                email: clientInfo.email,
-                phone: clientInfo.phone,
+                customer_name: clientInfo.complete_name,
+                contact_number: clientInfo.phone,
+                customer_email: clientInfo.email,
                 street_address: clientInfo.street_address,
-                province_state: provinceName,
-                city_municipality: cityName,
-                barangay: barangayName,
-                postal_code: clientInfo.postal_code,
+                province: provinceName,
+                city: cityName,
+                brgy: barangayName,
             };
 
-            if (selectedUser?.value?.id) {
+            if (clientInfo.id) {
                 // UPDATE existing customer
-                const response = await axios.patch(`${API_BASE_URL}/items/customer_information/${selectedUser.value.id}`, customerPayload);
+                const response = await axios.patch(`${API_BASE_URL}/items/customer/${clientInfo.id}`, customerPayload);
                 customerId = response.data.data.id;
-                console.log("Updated existing customer:", response.data.data);
             } else {
                 // CREATE new customer
-                const response = await axios.post(`${API_BASE_URL}/items/customer_information`, customerPayload);
+                const response = await axios.post(`${API_BASE_URL}/items/customer`, customerPayload);
                 customerId = response.data.data.id;
-                console.log("Created new customer:", response.data.data);
             }
 
             if (!customerId) throw new Error("Could not save customer information.");
 
+            console.log("Customer ID:", customerId); // Log the customer ID for debugging
+
             // --- STEP 2: Create Installation Request ---
             const installationRequestPayload = {
                 client_id: customerId,
-                // Request Data
                 supply_voltage_id: requestData.supply_voltage_id || null,
                 available_breaker_amps: requestData.available_breaker_amps || null,
                 preferred_unit_type_id: requestData.preferred_unit_type_id || null,
@@ -278,12 +308,13 @@ export default function SalesOrderManagementModule() {
                 notes: requestData.notes,
                 preferred_date: requestData.preferred_date || null,
                 preferred_time: requestData.preferred_time || null,
-                // Room Data (assuming a JSON field named 'room_data' exists on the installation_requests table)
                 room_data: {
                     ...roomData,
                     windows: roomData.windows.filter(w => w.width_m && w.height_m) // Clean up empty windows
                 }
             };
+
+            console.log("Installation Request Payload:", installationRequestPayload); // Log the payload for debugging
 
             const requestResponse = await axios.post(`${API_BASE_URL}/items/installation_requests`, installationRequestPayload);
             const newRequestId = requestResponse.data.data.id;
@@ -293,7 +324,6 @@ export default function SalesOrderManagementModule() {
 
             // --- STEP 3 & 4: Upload and Link Attachments ---
             if (attachments.length > 0) {
-                // 3a: Upload all files to the /files endpoint
                 const uploadPromises = attachments.map(file => {
                     const formData = new FormData();
                     formData.append('file', file);
@@ -305,14 +335,13 @@ export default function SalesOrderManagementModule() {
                 const uploadResults = await Promise.all(uploadPromises);
                 console.log("File upload successful:", uploadResults);
 
-                // 3b: Create records in the 'attachments' collection
                 const attachmentPayloads = uploadResults.map((result, index) => {
                     const uploadedFile = result.data.data;
                     const originalFile = attachments[index];
                     return {
                         request_id: newRequestId,
                         file_name: originalFile.name,
-                        file_path: uploadedFile.id, // Store the Directus file ID in file_path
+                        file_path: uploadedFile.id,
                         file_type: originalFile.type,
                         file_size_bytes: originalFile.size,
                     };
@@ -350,8 +379,8 @@ export default function SalesOrderManagementModule() {
             <section className="border rounded p-4">
                 <h2 className="font-bold mb-2">1) Client Information</h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <Label>First Name *<Input name="first_name" value={clientInfo.first_name} onChange={handleClientInputChange} required /></Label>
-                    <Label>Last Name *<Input name="last_name" value={clientInfo.last_name} onChange={handleClientInputChange} required /></Label>
+                    {/* ✅ FIX: Field name is 'complete_name' */}
+                    <Label>Complete Name *<Input name="complete_name" value={clientInfo.complete_name || ''} onChange={handleClientInputChange} required /></Label>
                     <Label>Email<Input name="email" value={clientInfo.email} onChange={handleClientInputChange} type="email" /></Label>
                     <Label>Phone *<Input name="phone" value={clientInfo.phone} onChange={handleClientInputChange} required /></Label>
                 </div>
@@ -377,9 +406,10 @@ export default function SalesOrderManagementModule() {
                             {filteredBarangays.map(b => <option key={b.brgy_code} value={b.brgy_code}>{b.brgy_name}</option>)}
                         </select>
                     </Label>
-                    <Label>Postal Code<Input name="postal_code" value={clientInfo.postal_code} onChange={handleClientInputChange} /></Label>
                 </div>
             </section>
+
+            {/* ... (Rest of your component remains unchanged) ... */}
 
             <section className="border rounded p-4 space-y-4">
                 <h2 className="font-bold mb-2">3) Property & Room Details</h2>

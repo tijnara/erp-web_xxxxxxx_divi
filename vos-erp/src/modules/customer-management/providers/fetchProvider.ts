@@ -72,6 +72,7 @@ function toAPI(dto: UpsertCustomerDTO): Record<string, any> {
   if (dto.otherDetails !== undefined) body["otherDetails"] = dto.otherDetails;
   if (dto.classification !== undefined) body["classification"] = dto.classification;
   if (dto.location !== undefined) body["location"] = dto.location;
+  if (dto.street_address !== undefined) body["street_address"] = dto.street_address;
   return body;
 }
 
