@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo } from "react";
 import { InventoryItem } from "../types";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import { useRouter } from "next/navigation"; // Next.js 13+ client routing
+import CreatePOModal from "./CreatePOModal";
 
 
 interface InventoryListViewProps {
@@ -24,16 +24,19 @@ export default function InventoryListView({
                                               totalItems,
                                           }: InventoryListViewProps) {
     const [searchTerm, setSearchTerm] = useState("");
+    const [showCreatePOModal, setShowCreatePOModal] = useState(false);
     const [selectedItems, setSelectedItems] = useState<InventoryItem[]>([]);
     const [selectAllAcrossPages, setSelectAllAcrossPages] = useState(false);
     const [sortKey, setSortKey] = useState<SortKey>("product_name");
     const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
     const [page, setPage] = useState(currentPage);
-    const [showCreatePOModal, setShowCreatePOModal] = useState(false);
+    const [isModalOpen, setIsModalOpen] = useState(false);
     const [branchFilter, setBranchFilter] = useState<string>("all");
     const [categoryFilter, setCategoryFilter] = useState<string>("all");
     const [summaryFilter, setSummaryFilter] = useState<string | null>(null);
     const [showExportModal, setShowExportModal] = useState(false);
+// Track "Ordered Quantity" for each product
+    const [orderedQuantities, setOrderedQuantities] = useState<{ [productId: number]: number }>({});
     const [selectedFields, setSelectedFields] = useState<string[]>([
         "branch_name",
         "product_code",
@@ -44,11 +47,37 @@ export default function InventoryListView({
         "last_restock_date",
     ]);
 
+    const LEAD_TIME_DAYS = 7; // average supplier lead time
+    const SAFETY_STOCK = 100; // minimum safety buffer
+
+    function calculateReorderPoint(avgDailyUsage: number) {
+        return avgDailyUsage * LEAD_TIME_DAYS + SAFETY_STOCK;
+    }
+
+    function calculateSuggestedQty(unitsSold: number) {
+        return unitsSold + SAFETY_STOCK;
+    }
+
+// Function to close the modal
+    const closeModal = () => setIsModalOpen(false);
+
+// Function to handle PO creation result
+    const handlePOCreated = (result: any) => {
+        console.log("PO created result:", result);
+        // You can refresh your inventory list or do other things here
+    };
+    const selectedQuantities = selectedItems.reduce((acc, item) => {
+        acc[item.product_id] = orderedQuantities[item.product_id] ?? 0;
+        return acc;
+    }, {} as { [productId: number]: number });
+
     const branches = useMemo(
         () => Array.from(new Set(initialData.map((i) => i.branch_name))),
         [initialData]
     );
-
+    const handleOrderedQuantityChange = (productId: number, value: number) => {
+        setOrderedQuantities((prev) => ({ ...prev, [productId]: value }));
+    };
     const categories = useMemo(
         () =>
             Array.from(new Set(initialData.map((i) => i.product_category))).filter(
@@ -56,16 +85,9 @@ export default function InventoryListView({
             ),
         [initialData]
     );
-    const [suppliers, setSuppliers] = useState<any[]>([]);
 
-    useEffect(() => {
-        async function fetchSuppliers() {
-            const res = await fetch("http://100.119.3.44:8090/items/suppliers");
-            const data = await res.json();
-            setSuppliers(data.data || []);
-        }
-        fetchSuppliers();
-    }, []);
+
+
     // ✅ Filtering logic
     const filteredData = useMemo(() => {
         const term = searchTerm.toLowerCase();
@@ -134,173 +156,7 @@ export default function InventoryListView({
             setSortDirection("asc");
         }
     };
-    const router = useRouter();
 
-
-    interface CreatePOModalProps {
-        open: boolean;
-        onClose: () => void;
-        suppliers: any[];
-        selectedItems: any[];
-    }
-    function CreatePOModal({ open, onClose, suppliers, selectedItems }: CreatePOModalProps) {
-        const [supplierId, setSupplierId] = useState<number | null>(null);
-        const [receivingType, setReceivingType] = useState<number>(1);
-        const [priceType, setPriceType] = useState<number>(1);
-        const [isCreating, setIsCreating] = useState(false);
-        const router = useRouter();
-
-        const handleCreatePO = async () => {
-            if (!supplierId) {
-                alert("Please select a supplier.");
-                return;
-            }
-
-            setIsCreating(true);
-
-            try {
-                const now = new Date();
-
-                const year = now.getFullYear();
-
-// 1️⃣ Generate sequential PO number (you might need to fetch the last PO number from backend for uniqueness)
-                const poNumber = `PO-${year}-${String(Math.floor(Math.random() * 9000 + 1)).padStart(4, "0")}`;
-
-// 2️⃣ Generate reference in the required format
-                const referenceNumber = `REQ-${year}-IT-${String(Math.floor(Math.random() * 9000 + 1)).padStart(4, "0")}`;
-
-                const poPayload = {
-                    supplier_id: Number(supplierId),
-                    purchase_order_no: poNumber,
-                    reference: referenceNumber,
-                    remark: "Created from Inventory",
-                    receiving_type: Number(receivingType),
-                    price_type: Number(priceType),
-                    receipt_required: null,
-                    date: now.toISOString().split("T")[0],        // YYYY-MM-DD
-                    date_encoded: now.toISOString().split("T")[0],
-                    datetime: now.toISOString(),
-                    time: now.toTimeString().split(" ")[0],       // HH:MM:SS
-                    total_amount: Number(selectedItems.reduce(
-                        (sum, item) => sum + (item.quantity * (item.unit_price || 0)),
-                        0
-                    )),
-                    inventory_status: 0,
-                    payment_status: 1,
-                };
-
-                const res = await fetch("http://100.119.3.44:8090/items/purchase_order", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(poPayload),
-                });
-
-                if (!res.ok) {
-                    const text = await res.text();
-                    throw new Error(text || "Failed to create purchase order");
-                }
-
-                const newPO = await res.json();
-                const poId = newPO.id;
-
-                // 2️⃣ Add selected inventory items to PO
-                for (const item of selectedItems) {
-                    await fetch("http://100.119.3.44:8090/items/purchase_order_products", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({
-                            purchase_order_id: poId,
-                            product_id: item.product_id,
-                            ordered_quantity: item.quantity,
-                            unit_price: item.unit_price || 0,
-                            branch_id: item.branch_id,
-                            approved_price: 0,
-                            discounted_price: 0,
-                            vat_amount: 0,
-                            withholding_amount: 0,
-                            total_amount: item.quantity * (item.unit_price || 0),
-                            received: false,
-                        }),
-                    });
-                }
-
-                onClose();
-                router.push(`operation/purchase-order/${poId}`);
-            } catch (err: any) {
-                console.error(err);
-                alert(err.message || "Failed to create PO");
-            } finally {
-                setIsCreating(false);
-            }
-        };
-
-        if (!open) return null;
-
-        return (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-                <div className="bg-white p-6 rounded-lg w-96 shadow-lg">
-                    <h2 className="text-lg font-semibold mb-4">Create Purchase Order</h2>
-
-                    <div className="mb-4">
-                        <label className="block mb-1">Supplier *</label>
-                        <select
-                            className="w-full border rounded p-2"
-                            value={supplierId || ""}
-                            onChange={(e) => setSupplierId(Number(e.target.value))}
-                        >
-                            <option value="">Select Supplier</option>
-                            {suppliers.map((s) => (
-                                <option key={s.id} value={s.id}>
-                                    {s.supplier_name}
-                                </option>
-                            ))}
-                        </select>
-                    </div>
-
-                    <div className="mb-4">
-                        <label className="block mb-1">Receiving Type</label>
-                        <select
-                            className="w-full border rounded p-2"
-                            value={receivingType}
-                            onChange={(e) => setReceivingType(Number(e.target.value))}
-                        >
-                            <option value={1}>Type 1</option>
-                            <option value={2}>Type 2</option>
-                        </select>
-                    </div>
-
-                    <div className="mb-4">
-                        <label className="block mb-1">Price Type</label>
-                        <select
-                            className="w-full border rounded p-2"
-                            value={priceType}
-                            onChange={(e) => setPriceType(Number(e.target.value))}
-                        >
-                            <option value={1}>Type 1</option>
-                            <option value={2}>Type 2</option>
-                        </select>
-                    </div>
-
-                    <div className="flex justify-end gap-2">
-                        <button
-                            onClick={onClose}
-                            className="px-4 py-2 border rounded"
-                            disabled={isCreating}
-                        >
-                            Cancel
-                        </button>
-                        <button
-                            onClick={handleCreatePO}
-                            className="px-4 py-2 bg-blue-600 text-white rounded"
-                            disabled={isCreating}
-                        >
-                            {isCreating ? "Creating..." : "Create PO"}
-                        </button>
-                    </div>
-                </div>
-            </div>
-        );
-    }
     const handleExport = (itemsToExport?: InventoryItem[]) => {
         const exportData = (itemsToExport || (selectAllAcrossPages ? filteredData : selectedItems)).map((item) => {
             const obj: Record<string, any> = {};
@@ -514,17 +370,12 @@ export default function InventoryListView({
 
                             <button
                                 onClick={() => setShowCreatePOModal(true)}
-                                className="px-3 py-1 bg-gray-600 text-white rounded hover:bg-gray-700 text-sm"
+                                className="px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 text-sm"
                             >
                                 Create PO
                             </button>
 
-                            <CreatePOModal
-                                open={showCreatePOModal}
-                                onClose={() => setShowCreatePOModal(false)}
-                                suppliers={suppliers} // you need to pass supplier list here
-                                selectedItems={selectedItems}
-                            />
+
 
                         </div>
                     )}
@@ -563,17 +414,26 @@ export default function InventoryListView({
                         <th className="p-2 text-right">Reserved</th>
                         <th className="p-2 text-right">Available</th>
                         <th className="p-2 text-right">Last Restock</th>
+                        <th className="p-2 text-right">Suggested Qty</th>
+                        <th className="p-2 text-center">Status</th>
+                        <th className="p-2 text-right">Ordered Qty</th> {/* New column */}
                     </tr>
                     </thead>
                     <tbody>
                     {paginatedData.map((item) => {
                         const isSelected = selectedItems.includes(item);
+                        const totalQty = item.quantity ?? 0;
+                        const reservedQty = item.reserved_quantity ?? 0;
+                        const availableQty = item.available_quantity ?? 0;
+
+                        // 🧮 Simplified reorder logic based only on your data
+                        const suggestedQty = totalQty - availableQty;
+                        const needsReorder = availableQty < totalQty * 0.2;
+
                         return (
                             <tr
                                 key={`${item.branch_id}-${item.product_id}`}
-                                className={`border-t hover:bg-gray-50 cursor-pointer ${
-                                    isSelected ? "bg-blue-100" : ""
-                                }`}
+                                className={`border-t hover:bg-gray-50 cursor-pointer ${isSelected ? "bg-blue-100" : ""}`}
                             >
                                 {/* Row Checkbox */}
                                 <td className="p-2 text-center">
@@ -599,16 +459,36 @@ export default function InventoryListView({
                                 <td className="p-2 text-right">{item.reserved_quantity}</td>
                                 <td className="p-2 text-right">{item.available_quantity}</td>
                                 <td className="p-2 text-right">
-                                    {item.last_restock_date
-                                        ? new Date(item.last_restock_date).toLocaleDateString()
-                                        : "-"}
+                                    {item.last_restock_date ? item.last_restock_date : "—"}
                                 </td>
+
+                                {/* 🔢 Reorder calculations */}
+                                <td className="p-2 text-right">{suggestedQty}</td>
+                                <td className={`p-2 text-center font-semibold ${needsReorder ? "text-red-600" : "text-green-600"}`}>
+                                    {needsReorder ? "Reorder Needed" : "OK"}
+                                </td>
+
+                                {/* Ordered Quantity Input */}
+                                <td className="p-2 text-right">
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        value={orderedQuantities[item.product_id] ?? ""}
+                                        onChange={(e) =>
+                                            handleOrderedQuantityChange(item.product_id, Number(e.target.value))
+                                        }
+                                        className="border rounded p-1 w-20 text-right"
+                                    />
+                                </td>
+
+
                             </tr>
                         );
                     })}
                     </tbody>
                 </table>
             </div>
+
 
             {/* ✅ Pagination */}
             <div className="flex justify-between items-center mt-4 text-sm">
@@ -644,6 +524,19 @@ export default function InventoryListView({
                     </button>
                 </div>
             </div>
+            {/* ✅ Create PO Modal */}
+            {showCreatePOModal && (
+                <CreatePOModal
+                    items={selectedItems}
+                    onClose={() => setShowCreatePOModal(false)} // ✅ correct state handler
+                    onSubmit={handlePOCreated}
+                    initialQuantities={selectedQuantities}
+                />
+            )}
+
+
+
+
 
             {/* ✅ Export Modal */}
             {showExportModal && (
@@ -667,6 +560,8 @@ export default function InventoryListView({
                   </span>
                                 </label>
                             ))}
+
+
                         </div>
                         {selectedItems.length > 0 && (
 

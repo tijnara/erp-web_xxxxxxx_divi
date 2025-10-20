@@ -10,7 +10,7 @@ export default function AnnouncementDashboardWidget() {
     const [announcements, setAnnouncements] = useState<Announcement[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const [showAll, setShowAll] = useState(false); // toggle state
+    const [showAll, setShowAll] = useState(false);
 
     useEffect(() => {
         async function loadAnnouncements() {
@@ -29,7 +29,6 @@ export default function AnnouncementDashboardWidget() {
     if (loading) return <p>Loading announcements...</p>;
     if (error) return <p>Error: {error}</p>;
 
-    // ✅ Apply visibility filter (same as in AnnouncementWidget)
     const today = new Date();
     const visibleAnnouncements = announcements.filter(item => {
         if (!item.hidden_date) return true;
@@ -40,16 +39,14 @@ export default function AnnouncementDashboardWidget() {
     const toggleShowAll = () => setShowAll(prev => !prev);
 
     return (
-        <div className="p-4 bg-white rounded-lg shadow">
+        <div className="p-6 bg-white rounded-lg shadow-md">
             <h2 className="text-xl font-bold mb-4">Announcements</h2>
 
-            {/* ✅ Pass limit only if not showing all */}
             <AnnouncementWidget
                 announcements={visibleAnnouncements}
                 limit={showAll ? undefined : 3}
             />
 
-            {/* ✅ Only show the toggle button if there are more than 3 announcements */}
             {hasMoreThanThree && (
                 <div className="mt-4 text-right">
                     <button

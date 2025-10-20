@@ -8,6 +8,7 @@ interface ListParams {
 
 export function fetchProvider() {
     return {
+
         async getPurchaseOrder(id: number) {
             const response = await fetch(`${API_BASE}/purchase_order/${id}`);
             if (!response.ok) throw new Error("Failed to fetch purchase order");
@@ -86,5 +87,13 @@ export function fetchProvider() {
             const json = await response.json();
             return json.data || [];
         },
+        async listPurchaseOrderReceiving(purchaseOrderId: number) {
+            const response = await fetch(`${API_BASE}/purchase_order_receiving?purchase_order_id=${purchaseOrderId}`);
+            if (!response.ok) throw new Error("Failed to fetch receiving history");
+            const json = await response.json();
+            return json.data || [];
+        }
+
+
     };
 }
