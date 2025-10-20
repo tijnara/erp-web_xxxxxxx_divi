@@ -554,7 +554,7 @@ export default function CreatePOModal({ items, onClose, onSubmit ,initialQuantit
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm">
             <div className="bg-white p-6 rounded-lg w-[700px] shadow-lg max-h-[80vh] overflow-y-auto">
                 <h2 className="text-lg font-semibold mb-4">Create Purchase Order</h2>
 

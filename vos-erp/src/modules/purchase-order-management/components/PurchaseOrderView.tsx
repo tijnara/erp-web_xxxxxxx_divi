@@ -443,20 +443,32 @@ export function PurchaseOrderView() {
                                             </tr>
                                             </thead>
                                             <tbody>
-                                            {receivingForPO.length > 0 ? receivingForPO.map(r => (
-                                                <tr key={r.purchase_order_product_id} className="bg-white border-b hover:bg-gray-50">
-                                                    <td className="px-6 py-4">{r.receipt_date}</td>
-                                                    <td className="px-6 py-4 font-medium text-gray-800">{r.receipt_no}</td>
-                                                    <td className="px-6 py-4">{productNameMap.get(r.product_id) || `Product ${r.product_id}`}</td>
-                                                    <td className="px-6 py-4">{getBranchName(r.branch_id, branches)}</td>
-                                                    <td className="px-6 py-4 text-right font-semibold">{r.received_quantity}</td>
-                                                    <td className="px-6 py-4 text-center">
-                                                        <button onClick={() => handleShowSerials(r.serial_no)} className="text-indigo-600 hover:underline text-xs">View Serials</button>
+                                            {receivingForPO
+                                                .filter(r => r.purchase_order_id === activePO.purchase_order_id)
+                                                .length > 0 ? (
+                                                receivingForPO
+                                                    .filter(r => r.purchase_order_id === activePO.purchase_order_id)
+                                                    .map(r => (
+                                                        <tr key={r.purchase_order_receive_id} className="bg-white border-b hover:bg-gray-50">
+                                                            <td className="px-6 py-4">{r.receipt_date}</td>
+                                                            <td className="px-6 py-4 font-medium text-gray-800">{r.receipt_no}</td>
+                                                            <td className="px-6 py-4">{productNameMap.get(r.product_id) || `Product ${r.product_id}`}</td>
+                                                            <td className="px-6 py-4">{getBranchName(r.branch_id, branches)}</td>
+                                                            <td className="px-6 py-4 text-right font-semibold">{r.received_quantity}</td>
+                                                            <td className="px-6 py-4 text-center">
+                                                                <button onClick={() => handleShowSerials(r.serial_no)} className="text-indigo-600 hover:underline text-xs">View Serials</button>
+                                                            </td>
+                                                        </tr>
+                                                    ))
+                                            ) : (
+                                                <tr>
+                                                    <td colSpan={6} className="text-center py-8 text-gray-500">
+                                                        No receiving records for this purchase order.
                                                     </td>
                                                 </tr>
-                                            )) : (
-                                                <tr><td colSpan={6} className="text-center py-8 text-gray-500">No receiving records for this purchase order.</td></tr>
-                                            )}
+                                            )
+                                            }
+
                                             </tbody>
                                         </table>
                                     </div>

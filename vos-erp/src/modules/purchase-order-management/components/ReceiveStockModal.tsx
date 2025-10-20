@@ -169,7 +169,7 @@ export function ReceiveStockModal({ open, onClose, purchaseOrderId }: ReceiveSto
     if (!open) return null;
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center z-50">
             <div className="bg-white w-11/12 md:max-w-4xl rounded-lg shadow-lg p-6 relative">
                 <button onClick={onClose} className="absolute top-3 right-3 text-gray-600 text-2xl">&times;</button>
 
