@@ -115,12 +115,12 @@ const JobOrderDetails: React.FC<JobOrderDetailsProps> = ({
                     {/* ✅ MODIFIED: This section now displays Installation Request data */}
                     {activeJobOrder?.sales_order_id && (
                         <section className="p-6 bg-white rounded-xl shadow-lg">
-                            <h2 className="text-xl font-semibold text-gray-800 border-b border-gray-200 pb-3 mb-6">Related Installation Request</h2>
+                            <h2 className="text-xl font-semibold text-gray-800 border-b border-gray-200 pb-3 mb-6">Related Sales Order</h2>
                             {isRequestLoading ? (
                                 <p className="text-gray-600">Loading installation request...</p>
                             ) : installationRequest ? (
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4 text-sm">
-                                    <div><strong className="text-gray-600 block">IR Code:</strong> {installationRequest.ir_code || 'N/A'}</div>
+                                    <div><strong className="text-gray-600 block">Code:</strong> {installationRequest.ir_code || 'N/A'}</div>
                                     <div><strong className="text-gray-600 block">Request Date:</strong> {formatDate(installationRequest.created_at)}</div>
                                     <div><strong className="text-gray-600 block">Preferred Date:</strong> {formatDate(installationRequest.preferred_date)}</div>
                                     <div><strong className="text-gray-600 block">Budget:</strong> ₱{Number(installationRequest.budget_php).toLocaleString('en-US', { minimumFractionDigits: 2 })}</div>

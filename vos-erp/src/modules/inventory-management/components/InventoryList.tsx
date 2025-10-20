@@ -405,7 +405,7 @@ export default function InventoryListView({
                 <table className="w-full border-collapse text-xs md:text-sm">
                     <thead className="bg-gray-100">
                     <tr>
-                        <th className="p-2 text-center"> </th> {/* Checkbox column */}
+                        <th className="p-2 text-center"></th> {/* Checkbox column */}
                         <th className="p-2 text-left">Branch</th>
                         <th className="p-2 text-left">Product Code</th>
                         <th className="p-2 text-left">Product Name</th>

@@ -28,20 +28,49 @@ const CreateJobOrderForm: FC = () => {
     const [customerNameMap, setCustomerNameMap] = useState<Record<number, string>>({});
     const [consumableItems, setConsumableItems] = useState<{ item_id: number; item_name: string; unit_cost: string | number }[]>([]);
     const [products, setProducts] = useState<{ product_id: number; product_name: string; price_per_unit: string | number }[]>([]);
+    // const [salesOrders, setSalesOrders] = useState<{ id: number; order_no: string }[]>([]); // Removed this, using installationRequests state
 
     // --- Effects ---
 
-    // Fetch Installation Requests for the dropdown
+    // ✅ MODIFIED: Fetch Installation Requests AND Job Orders to filter the dropdown
     useEffect(() => {
-        fetch('http://100.119.3.44:8090/items/installation_requests')
-            .then((res) => res.json())
-            .then((data) => {
-                setInstallationRequests(data.data || []);
-            })
-            .catch((error) => {
-                console.error('Error fetching Sales Order:', error);
-            });
-    }, []);
+        const fetchAndFilterRequests = async () => {
+            try {
+                // 1. Fetch all Installation Requests
+                const requestRes = await fetch('http://100.119.3.44:8090/items/installation_requests?limit=-1&fields=id,ir_code'); // Fetch only needed fields
+                if (!requestRes.ok) throw new Error('Failed to fetch Sales Order');
+                const requestData = await requestRes.json();
+                const allRequests: InstallationRequest[] = requestData.data || [];
+
+                // 2. Fetch all Job Orders (just the linked sales_order_id)
+                const jobOrderRes = await fetch('http://100.119.3.44:8090/items/job_order?limit=-1&fields=sales_order_id');
+                if (!jobOrderRes.ok) throw new Error('Failed to fetch Job Orders');
+                const jobOrderData = await jobOrderRes.json();
+
+                // 3. Create a Set of Installation Request IDs that are already used in Job Orders
+                const usedRequestIds = new Set(
+
+                    (jobOrderData.data || [])
+                        .map((jo: { sales_order_id: number | null }) => jo.sales_order_id)
+                        .filter((id): id is number => id !== null) // Filter out null/undefined IDs and ensure type is number
+                );
+
+                // 4. Filter the Installation Requests list
+                const availableRequests = allRequests.filter(req => !usedRequestIds.has(req.id));
+
+                // 5. Set the state with the filtered list
+                setInstallationRequests(availableRequests);
+
+            } catch (error) {
+                console.error('Error fetching data for dropdown filter:', error);
+                // Optionally set all requests if filtering fails, or handle error appropriately
+                // fetch('http://100.119.3.44:8090/items/installation_requests?limit=-1&fields=id,ir_code')
+                //  .then(res => res.json()).then(data => setInstallationRequests(data.data || []));
+            }
+        };
+
+        fetchAndFilterRequests();
+    }, []); // Run only once on mount
 
     // Generate unique Job Order number based on year and sequence
     useEffect(() => {
@@ -104,8 +133,7 @@ const CreateJobOrderForm: FC = () => {
             });
     }, []);
 
-    // --- Event Handlers ---
-
+    // --- Event Handlers --- (Keep handleJobOrderChange, handleDetailChange, addDetail, removeDetail, handleAssignmentChange, addAssignment, removeAssignment, handleSubmit, handleInstallationRequestChange as they were in the previous correct version)
     // Handle changes in the main Job Order fields
     const handleJobOrderChange = (
         e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
@@ -382,6 +410,7 @@ const CreateJobOrderForm: FC = () => {
             {/* Installation Request Selection */}
             <section className={sectionClass}>
                 <div className="mb-4">
+                    {/* Changed label back to Installation Request */}
                     <label htmlFor="sales_order_id" className="block font-medium mb-1">Sales Order</label>
                     <select
                         id="sales_order_id" name="sales_order_id" // Name links to jobOrder state
@@ -390,6 +419,7 @@ const CreateJobOrderForm: FC = () => {
                         className="border rounded px-2 py-1 w-full"
                     >
                         <option value="">Select an Sales Order</option>
+                        {/* Iterate over the filtered installationRequests state */}
                         {installationRequests.map((request) => (
                             <option key={request.id} value={request.id}>
                                 {request.ir_code || `Request ID: ${request.id}`} {/* Display IR code or fallback ID */}
@@ -415,10 +445,7 @@ const CreateJobOrderForm: FC = () => {
                         <div>
                             <label htmlFor="service_type" className={labelClass}>Service Type</label>
                             <select id="service_type" name="service_type" value={jobOrder.service_type || 'Installation'} onChange={handleJobOrderChange} className={inputClass}>
-                                <option>Installation</option>
-                                <option>Repair</option>
-                                <option>Maintenance</option>
-                                <option>DeliveryOnly</option>
+                                <option>Installation</option> <option>Repair</option> <option>Maintenance</option> <option>DeliveryOnly</option>
                             </select>
                         </div>
                         <div>
@@ -463,7 +490,7 @@ const CreateJobOrderForm: FC = () => {
             {/* Job Details (Parts, Products, Labor) */}
             <section className={sectionClass}>
                 <div className="flex flex-wrap justify-between items-center gap-4 mb-6 border-b border-gray-200 pb-3">
-                    <h2 className={sectionTitleClass} style={{ marginBottom: 0, borderBottom: 'none' }}>Job Details (Parts & Labor)</h2> {/* Adjusted styling */}
+                    <h2 className={sectionTitleClass} style={{ marginBottom: 0, borderBottom: 'none' }}>Job Details (Parts & Labor)</h2>
                     <button type="button" onClick={addDetail} className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white font-semibold rounded-lg shadow-md hover:bg-indigo-700 transition-transform transform hover:scale-105">
                         <PlusCircle size={20} /> Add Item
                     </button>
