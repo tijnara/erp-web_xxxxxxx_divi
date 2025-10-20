@@ -56,7 +56,7 @@ export default function AnnouncementDetailPage() {
             <p className="text-sm text-gray-500">
                 Posted by {announcement.created_by} on {announcement.posting_date}
             </p>
-            <p className="text-sm text-gray-400">Hidden on {announcement.hidden_date}</p>
+
         </div>
     );
 }

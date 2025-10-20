@@ -122,7 +122,7 @@ export function PurchaseOrderView() {
         }
         return products.filter((p) => p.purchase_order_id === activePOId);
     }, [products, activePOId]);
-    const receivingForPO = useMemo(() => receiving.filter(r => r.purchase_order_id === activePOId), [receiving, activePOId]);
+    const [receivingForPO, setReceivingForPO] = useState<any[]>([]);
 
     // Corrected usage of state setters
     useEffect(() => {
@@ -215,7 +215,9 @@ export function PurchaseOrderView() {
         setActivePOId(poId);
         setTab("products");
         setShowPOModal(false);
+
         try {
+            // Fetch products
             const res = await fetch(`${API_BASE}/purchase_order_products?filter[purchase_order_id]=${poId}`);
             const json = await res.json();
             const otherPOProducts = Array.isArray(products) ? products.filter((p) => p.purchase_order_id !== poId) : [];
@@ -223,7 +225,11 @@ export function PurchaseOrderView() {
         } catch (error) {
             console.error("Failed to fetch purchase order products:", error);
         }
+
+        // Fetch receiving
+        fetchReceivingForPO(poId);
     };
+
 
     const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
         setSearchTerm(e.target.value);
@@ -233,6 +239,17 @@ export function PurchaseOrderView() {
         setSerialsToShow(serials);
         setShowSerialsModal(true);
     };
+    const fetchReceivingForPO = async (poId: number) => {
+        try {
+            const res = await fetch(`${API_BASE}/purchase_order_receiving?purchase_order_id=${poId}`);
+            const json = await res.json();
+            setReceivingForPO(json.data || []);
+        } catch (error) {
+            console.error("Failed to fetch receiving history:", error);
+            setReceivingForPO([]);
+        }
+    };
+
 
     // --- MODIFICATION: Added useEffect to fetch all products and populate the map ---
     useEffect(() => {
@@ -253,6 +270,7 @@ export function PurchaseOrderView() {
         };
         fetchAllProducts();
     }, []);
+
 
     // UI
     // @ts-ignore
@@ -580,7 +598,14 @@ suppliers={suppliers}
             />
 
             {/* Receive Stock Modal */}
-            <ReceiveStockModal open={showReceivingModal} onClose={() => setShowReceivingModal(false)} />
+            {/* Receive Stock Modal — render only when an active PO is selected */}
+            {activePO && (
+                <ReceiveStockModal
+                    open={showReceivingModal}
+                    onClose={() => setShowReceivingModal(false)}
+                    purchaseOrderId={activePO.purchase_order_id}
+                />
+            )}
 
             <Dialog open={showProductDetailsModal} onOpenChange={setShowProductDetailsModal}>
                 <DialogContent className="max-w-lg w-full">

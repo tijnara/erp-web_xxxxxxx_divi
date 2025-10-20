@@ -13,4 +13,8 @@ export interface InventoryItem {
     available_quantity: number;
     last_restock_date: string;
     last_updated: string;
+    supplier_id: number; // add this
+    ordered_quantity?: number; // ✅ add this
+
+
 }
