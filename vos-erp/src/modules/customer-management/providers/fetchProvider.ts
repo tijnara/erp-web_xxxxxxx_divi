@@ -1,14 +1,6 @@
 // src/modules/customer-management/providers/fetchProvider.ts
+import { supabase } from "../../../lib/supabase";
 import type { Customer, UpsertCustomerDTO } from "../types";
-import { itemsUrl } from "../../../config/api";
-
-const BASE = itemsUrl("customer"); // Use absolute URL to external API
-
-export type ListParams = {
-    q?: string;
-    limit?: number;
-    offset?: number;
-};
 
 function toUI(row: any): Customer {
   return {
@@ -40,191 +32,188 @@ function toUI(row: any): Customer {
     otherDetails: row.otherDetails ?? null,
     classification: row.classification ?? null,
     location: row.location ?? null,
+    street_address: row.street_address ?? null,
   } as Customer;
 }
 
-function toAPI(dto: UpsertCustomerDTO): Record<string, any> {
-  const body: Record<string, any> = {};
-  if (dto.customer_code !== undefined) body["customer_code"] = dto.customer_code;
-  if (dto.customer_name !== undefined) body["customer_name"] = dto.customer_name;
-  if (dto.customer_image !== undefined) body["customer_image"] = dto.customer_image;
-  if (dto.store_name !== undefined) body["store_name"] = dto.store_name;
-  if (dto.store_signage !== undefined) body["store_signage"] = dto.store_signage;
-  if (dto.brgy !== undefined) body["brgy"] = dto.brgy;
-  if (dto.city !== undefined) body["city"] = dto.city;
-  if (dto.province !== undefined) body["province"] = dto.province;
-  if (dto.contact_number !== undefined) body["contact_number"] = dto.contact_number;
-  if (dto.customer_email !== undefined) body["customer_email"] = dto.customer_email;
-  if (dto.tel_number !== undefined) body["tel_number"] = dto.tel_number;
-  if (dto.bank_details !== undefined) body["bank_details"] = dto.bank_details;
-  if (dto.customer_tin !== undefined) body["customer_tin"] = dto.customer_tin;
-  if (dto.payment_term !== undefined) body["payment_term"] = dto.payment_term;
-  if (dto.store_type !== undefined) body["store_type"] = dto.store_type;
-  if (dto.price_type !== undefined) body["price_type"] = dto.price_type;
-  if (dto.encoder_id !== undefined) body["encoder_id"] = dto.encoder_id;
-  if (dto.credit_type !== undefined) body["credit_type"] = dto.credit_type;
-  if (dto.company_code !== undefined) body["company_code"] = dto.company_code;
-  if (dto.date_entered !== undefined) body["date_entered"] = dto.date_entered;
-  if (dto.isActive !== undefined) body["isActive"] = dto.isActive;
-  if (dto.isVAT !== undefined) body["isVAT"] = dto.isVAT;
-  if (dto.isEWT !== undefined) body["isEWT"] = dto.isEWT;
-  if (dto.discount_type !== undefined) body["discount_type"] = dto.discount_type;
-  if (dto.otherDetails !== undefined) body["otherDetails"] = dto.otherDetails;
-  if (dto.classification !== undefined) body["classification"] = dto.classification;
-  if (dto.location !== undefined) body["location"] = dto.location;
-  if (dto.street_address !== undefined) body["street_address"] = dto.street_address;
-  return body;
-}
-
-async function http<T = any>(input: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(input, {
-    ...init,
-    headers: {
-      "Content-Type": "application/json",
-      ...(init?.headers || {}),
-    },
-    cache: "no-store",
-  });
-  if (!res.ok) {
-    const text = await res.text().catch(() => "");
-    throw new Error(`HTTP ${res.status} ${res.statusText}: ${text}`);
-  }
-  return (await res.json()) as T;
+function toAPI(dto: UpsertCustomerDTO): any {
+  return {
+    customer_code: dto.customer_code,
+    customer_name: dto.customer_name,
+    customer_image: dto.customer_image,
+    store_name: dto.store_name,
+    store_signage: dto.store_signage,
+    brgy: dto.brgy,
+    city: dto.city,
+    province: dto.province,
+    contact_number: dto.contact_number,
+    customer_email: dto.customer_email,
+    tel_number: dto.tel_number,
+    bank_details: dto.bank_details,
+    customer_tin: dto.customer_tin,
+    payment_term: dto.payment_term,
+    store_type: dto.store_type,
+    price_type: dto.price_type,
+    encoder_id: dto.encoder_id,
+    credit_type: dto.credit_type,
+    company_code: dto.company_code,
+    date_entered: dto.date_entered,
+    isActive: dto.isActive,
+    isVAT: dto.isVAT,
+    isEWT: dto.isEWT,
+    discount_type: dto.discount_type,
+    otherDetails: dto.otherDetails,
+    classification: dto.classification,
+    location: dto.location,
+    street_address: dto.street_address,
+  };
 }
 
 export const fetchProvider = () => ({
-  async listCustomers({ q, limit = 20, offset = 0 }: ListParams) {
-    const url = new URL(BASE);
-    if (q && q.trim().length > 0) {
-        url.searchParams.set("search", q.trim());
-    }
-    url.searchParams.set("limit", String(limit));
-    url.searchParams.set("offset", String(offset));
-    url.searchParams.set("meta", "filter_count");
+  async listCustomers({ q, limit = 20, offset = 0 }: { q?: string; limit?: number; offset?: number }) {
+    let query = supabase
+      .from("customer")
+      .select("*", { count: "exact" })
+      .range(offset, offset + limit - 1);
 
-    try {
-      const json = await http<{ data: any[], meta: { filter_count: number } }>(url.toString());
-      const items = (json?.data ?? []).map(toUI);
-      return { items, total: json.meta?.filter_count ?? items.length };
-    } catch (e) {
-      console.error("Failed to list customers:", e);
-      return { items: [], total: 0 }; // Return empty on error
+    if (q && q.trim().length > 0) {
+      query = query.or(`customer_name.ilike.%${q}%,customer_code.ilike.%${q}%`);
     }
+
+    const { data, error, count } = await query;
+
+    if (error) {
+      console.error("Failed to list customers:", error);
+      return { items: [], total: 0 };
+    }
+
+    return {
+      items: (data ?? []).map(toUI),
+      total: count ?? 0,
+    };
   },
 
   async getCustomer(id: string | number) {
-    const json = await http<{ data: any }>(`${BASE}?id=${encodeURIComponent(String(id))}`);
-    const data: any = (json as any).data;
-    const row = Array.isArray(data) ? data.find((r: any) => String(r.id) === String(id)) : data;
-    return toUI(row ?? {});
+    const { data, error } = await supabase
+      .from("customer")
+      .select("*")
+      .eq("id", id)
+      .single();
+
+    if (error) throw error;
+    return toUI(data);
   },
 
   async createCustomer(dto: UpsertCustomerDTO) {
     const payload = toAPI(dto);
-    const json = await http<{ data: any }>(BASE, { method: "POST", body: JSON.stringify(payload) });
-    return toUI((json as any).data ?? json);
+    const { data, error } = await supabase
+      .from("customer")
+      .insert(payload)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return toUI(data);
   },
 
   async updateCustomer(id: string | number, dto: UpsertCustomerDTO) {
     const payload = toAPI(dto);
-    const url = `${BASE}/${encodeURIComponent(String(id))}`;
-    const json = await http<{ data: any }>(url, {
-      method: "PATCH",
-      body: JSON.stringify(payload),
-    });
-    return toUI((json as any).data ?? json);
+    const { data, error } = await supabase
+      .from("customer")
+      .update(payload)
+      .eq("id", id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return toUI(data);
   },
 
   async deleteCustomer(id: string | number) {
-    await http(`${BASE}/${encodeURIComponent(String(id))}`, {
-      method: "DELETE",
-    });
+    const { error } = await supabase
+      .from("customer")
+      .delete()
+      .eq("id", id);
+
+    if (error) throw error;
   },
 
   async listStoreTypes() {
-    const json = await http<{ data: { id: number; store_type: string }[] }>(itemsUrl("store_type"));
-    return json.data || [];
+    const { data } = await supabase.from("store_type").select("*");
+    return data || [];
   },
 
   async listDiscountTypes() {
-    const json = await http<{ data: { id: number; discount_type: string }[] }>(itemsUrl("discount_type"));
-    return json.data || [];
+    const { data, error } = await supabase.from("discount_type").select("id,discount_type");
+    if (error) throw error;
+    return data || [];
   },
 
   async listUsers() {
-    const json = await http<{ data: { user_id: number; user_fname: string; user_lname: string }[] }>(itemsUrl("user"));
-    return json.data || [];
+    const { data, error } = await supabase.from("user").select("user_id,user_fname,user_lname");
+    if (error) throw error;
+    return data || [];
   },
 
   async listProducts(productIds: number[]) {
-    const url = new URL(itemsUrl("products"));
+    let query = supabase.from("products").select("product_id,product_name");
     if (productIds.length > 0) {
-      url.searchParams.set("filter[product_id][_in]", productIds.join(","));
+      query = query.in("product_id", productIds);
     }
-    url.searchParams.set("fields", "product_id,product_name");
-    const json = await http<{ data: { product_id: number; product_name: string }[] }>(url.toString());
-    return json.data || [];
+    const { data, error } = await query;
+    if (error) throw error;
+    return data || [];
   },
 
   async listLineDiscounts(lineDiscountIds: number[]) {
-    const url = new URL(itemsUrl("line_discount"));
+    let query = supabase.from("line_discount").select("id,line_discount");
     if (lineDiscountIds.length > 0) {
-      url.searchParams.set("filter[id][_in]", lineDiscountIds.join(","));
+      query = query.in("id", lineDiscountIds);
     }
-    url.searchParams.set("fields", "id,line_discount");
-    const json = await http<{ data: { id: number; line_discount: string }[] }>(url.toString());
-    return json.data || [];
+    const { data, error } = await query;
+    if (error) throw error;
+    return data || [];
   },
 
   async listBrands(brandIds: number[]) {
-    const url = new URL(itemsUrl("brand"));
+    let query = supabase.from("brand").select("brand_id,brand_name");
     if (brandIds.length > 0) {
-      url.searchParams.set("filter[brand_id][_in]", brandIds.join(","));
+      query = query.in("brand_id", brandIds);
     }
-    url.searchParams.set("fields", "brand_id,brand_name");
-    const json = await http<{ data: { brand_id: number; brand_name: string }[] }>(url.toString());
-    return json.data || [];
+    const { data, error } = await query;
+    if (error) throw error;
+    return data || [];
   },
 
   async listCategories(categoryIds: number[]) {
-    const url = new URL(itemsUrl("categories"));
+    let query = supabase.from("categories").select("category_id,category_name");
     if (categoryIds.length > 0) {
-      url.searchParams.set("filter[category_id][_in]", categoryIds.join(","));
+      query = query.in("category_id", categoryIds);
     }
-    url.searchParams.set("fields", "category_id,category_name");
-    const json = await http<{ data: { category_id: number; category_name: string }[] }>(url.toString());
-    return json.data || [];
+    const { data, error } = await query;
+    if (error) throw error;
+    return data || [];
   },
 
   async createCustomerDiscountProduct(data: { customer_id: number; product_id: number; line_discount_id: number; }) {
-    const url = itemsUrl("customer_discount_product");
-    await http(url, {
-      method: "POST",
-      body: JSON.stringify(data),
-    });
+    const { error } = await supabase.from("customer_discount_product").insert(data);
+    if (error) throw error;
   },
 
   async createCustomerDiscountBrand(data: { customer_id: number; brand_id: number; line_discount_id: number; }) {
-    const url = itemsUrl("customer_discount_brand");
-    await http(url, {
-      method: "POST",
-      body: JSON.stringify(data),
-    });
+    const { error } = await supabase.from("customer_discount_brand").insert(data);
+    if (error) throw error;
   },
 
   async createCustomerDiscountCategory(data: { customer_id: number; category_id: number; line_discount_id: number; }) {
-    const url = itemsUrl("customer_discount_category");
-    await http(url, {
-      method: "POST",
-      body: JSON.stringify(data),
-    });
+    const { error } = await supabase.from("customer_discount_category").insert(data);
+    if (error) throw error;
   },
 
   async listCustomerDiscountCategories(customerId: number) {
-    const url = new URL(itemsUrl("customer_discount_category"));
-    url.searchParams.set("filter[customer_id][_eq]", String(customerId));
-    const json = await http<{ data: any[] }>(url.toString());
-    return (json.data || []).map(row => ({
+    const { data, error } = await supabase.from("customer_discount_category").select("*").eq("customer_id", customerId);
+    if (error) throw error;
+    return (data || []).map((row: any) => ({
       id: row.id,
       customer_id: row.customer_id,
       category_id: row.category_id,
@@ -236,10 +225,9 @@ export const fetchProvider = () => ({
   },
 
   async listCustomerDiscountBrands(customerId: number) {
-    const url = new URL(itemsUrl("customer_discount_brand"));
-    url.searchParams.set("filter[customer_id][_eq]", String(customerId));
-    const json = await http<{ data: any[] }>(url.toString());
-    return (json.data || []).map(row => ({
+    const { data, error } = await supabase.from("customer_discount_brand").select("*").eq("customer_id", customerId);
+    if (error) throw error;
+    return (data || []).map((row: any) => ({
       id: row.id,
       customer_id: row.customer_id,
       brand_id: row.brand_id,
@@ -251,10 +239,9 @@ export const fetchProvider = () => ({
   },
 
   async listCustomerDiscountProducts(customerId: number) {
-    const url = new URL(itemsUrl("customer_discount_product"));
-    url.searchParams.set("filter[customer_id][_eq]", String(customerId));
-    const json = await http<{ data: any[] }>(url.toString());
-    return (json.data || []).map(row => ({
+    const { data, error } = await supabase.from("customer_discount_product").select("*").eq("customer_id", customerId);
+    if (error) throw error;
+    return (data || []).map((row: any) => ({
       id: row.id,
       customer_id: row.customer_id,
       product_id: row.product_id,

@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="CopilotDiffPersistence">
+    <option name="pendingDiffs">
+      <map>
+        <entry key="$PROJECT_DIR$/vos-erp/src/lib/asset-url.ts">
+          <value>
+            <PendingDiffInfo>
+              <option name="filePath" value="$PROJECT_DIR$/vos-erp/src/lib/asset-url.ts" />
+              <option name="originalContent" value="/**&#10; * Standardizes asset URLs.&#10; * If the URL is already a full http link (from Supabase), return it.&#10; * If it's a legacy Directus ID (UUID), construct the Directus URL (optional fallback).&#10; * If it's a local path, ensure it starts with /.&#10; */&#10;export function assetUrl(fileIdOrUrl?: string | null, params?: Record&lt;string, string&gt;) {&#10;    if (!fileIdOrUrl) return '';&#10;&#10;    // 1. If it's already a full URL (Supabase returns full public URLs)&#10;    if (fileIdOrUrl.startsWith('http')) {&#10;        return fileIdOrUrl;&#10;    }&#10;&#10;    // 2. If it's a legacy Directus UUID (e.g. &quot;a3311848-9855...&quot;)&#10;    if (fileIdOrUrl.match(/^[0-9a-fA-F-]{36}$/)) {&#10;        const base = `${process.env.NEXT_PUBLIC_DIRECTUS_URL}/assets/${fileIdOrUrl}`;&#10;        if (!params) return base;&#10;        const q = new URLSearchParams(params);&#10;        return `${base}?${q.toString()}`;&#10;    }&#10;&#10;    // 3. Fallback for local paths or relative paths&#10;    return fileIdOrUrl.startsWith('/') ? fileIdOrUrl : `/${fileIdOrUrl}`;&#10;}&#10;" />
+              <option name="updatedContent" value="/**&#10; * Standardizes asset URLs.&#10; * If the URL is already a full http link (from Supabase), return it.&#10; * If it's a legacy Directus ID (UUID), construct the Directus URL (optional fallback).&#10; * If it's a local path, ensure it starts with /.&#10; */&#10;export function assetUrl(fileIdOrUrl?: string | null, params?: Record&lt;string, string&gt;) {&#10;    if (!fileIdOrUrl) return '';&#10;&#10;    // 1. If it's already a full URL (e.g. from Supabase Storage), return it directly&#10;    if (fileIdOrUrl.startsWith('http') || fileIdOrUrl.startsWith('/uploads/')) {&#10;        return fileIdOrUrl;&#10;    }&#10;&#10;    // 2. Legacy Directus Support: If it looks like a UUID, assume it's an old Directus ID&#10;    // (Matches standard UUID format: 8-4-4-4-12 hex digits)&#10;    if (fileIdOrUrl.match(/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/)) {&#10;        const base = `${process.env.NEXT_PUBLIC_DIRECTUS_URL}/assets/${fileIdOrUrl}`;&#10;        if (!params) return base;&#10;        const q = new URLSearchParams(params);&#10;        return `${base}?${q.toString()}`;&#10;    }&#10;&#10;    // 3. Fallback&#10;    return fileIdOrUrl;&#10;}" />
+            </PendingDiffInfo>
+          </value>
+        </entry>
+      </map>
+    </option>
+  </component>
+</project>

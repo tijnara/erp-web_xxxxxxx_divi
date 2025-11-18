@@ -1,65 +1,32 @@
 // src/middleware.ts
 import { NextResponse, type NextRequest } from 'next/server';
 import { jwtVerify } from 'jose';
+import { createClient } from '@supabase/supabase-js';
 
-// Always provide safe fallbacks for cookie names
-const DIRECTUS_ACCESS = process.env.AUTH_ACCESS_COOKIE ?? 'vos_access';
-const APP_ACCESS      = process.env.APP_ACCESS_COOKIE  ?? 'vos_app_access';
-const secret = new TextEncoder().encode(process.env.AUTH_JWT_SECRET ?? 'dev-secret-change-me');
-const DIRECTUS = (process.env.NEXT_PUBLIC_DIRECTUS_URL ?? '').replace(/\/+$/,'');
+// Environment variables
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const SUPABASE_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+const APP_ACCESS   = process.env.APP_ACCESS_COOKIE  ?? 'vos_app_access';
+const secret       = new TextEncoder().encode(process.env.AUTH_JWT_SECRET ?? 'dev-secret-change-me');
 
 // Only protect these URL prefixes
 const PROTECTED = ['/dashboard', '/admin', '/operation', '/hr', '/reports'];
 
-// Machine token for middleware to look up user session
-const M_EMAIL = process.env.DIRECTUS_MACHINE_EMAIL;
-const M_PASS  = process.env.DIRECTUS_MACHINE_PASSWORD;
-
-let machineToken: string | undefined = undefined;
-let tokenExpires = 0;
-
-async function getMachineToken() {
-    if (machineToken && Date.now() < tokenExpires) {
-        return machineToken;
-    }
-
-    if (!M_EMAIL || !M_PASS) return undefined;
-    try {
-        const mres = await fetch(`${DIRECTUS}/auth/login`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email: M_EMAIL, password: M_PASS }),
-        });
-        const m = await mres.json().catch(() => ({}));
-        if (mres.ok && m.data.access_token) {
-            machineToken = m.data.access_token;
-            // expires is in ms
-            tokenExpires = Date.now() + m.data.expires - 5000; // 5s buffer
-            return machineToken;
-        }
-    } catch (e) {
-        console.error('MIDDLEWARE_MACHINE_TOKEN_FAIL', e);
-    }
-    return undefined;
-}
-
-
 export async function middleware(req: NextRequest) {
     const { pathname, search, origin } = req.nextUrl;
 
-    // only run on protected paths
+    // 1. Check if path is protected
     const isProtected = PROTECTED.some((p) => pathname.startsWith(p));
     if (!isProtected) return NextResponse.next();
 
+    // 2. Check for cookie
     const appCookie = req.cookies.get(APP_ACCESS)?.value;
-
     if (!appCookie) {
-        const url = new URL('/login', origin);
-        url.searchParams.set('next', `${pathname}${search || ''}`);
-        return NextResponse.redirect(url);
+        return redirectToLogin(req);
     }
 
     try {
+        // 3. Verify JWT signature (Local check for speed and validity)
         const { payload } = await jwtVerify(appCookie, secret);
         const { sub: userId, jti: sessionId } = payload as { sub: string, jti?: string };
 
@@ -67,51 +34,44 @@ export async function middleware(req: NextRequest) {
             throw new Error('Invalid token payload');
         }
 
-        const token = await getMachineToken();
-        if (!token) {
-            // If we can't get a machine token, we can't verify the session.
-            // For now, we'll allow access, but this is a potential security risk.
-            // A better approach might be to deny access if the session can't be verified.
-            console.warn('MIDDLEWARE_SKIP_SESSION_CHECK: No machine token');
-            return NextResponse.next();
+        // 4. Verify Session against Supabase Database (Remote check for security)
+        // We create a lightweight client just for this Edge function
+        const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        // Query the user to ensure the session token in the DB matches the cookie
+        const { data: user, error } = await supabase
+            .from('users')
+            .select('session_token')
+            .eq('user_id', userId)
+            .single();
+
+        if (error || !user) {
+            console.warn('MIDDLEWARE_USER_LOOKUP_FAIL', error);
+            throw new Error('User lookup failed');
         }
 
-        const url = `${DIRECTUS}/items/user/${userId}?fields=session_token`;
-        const ures = await fetch(url, {
-            headers: { Authorization: `Bearer ${token}` },
-            cache: 'no-store',
-        });
-
-        if (!ures.ok) {
-            // User not found or other error
-            throw new Error('User not found or permission error');
-        }
-
-        const user = await ures.json();
-        const userSession = user?.data?.session_token;
-
-        if (userSession !== sessionId) {
-            // Session is invalid, redirect to login
-            const url = new URL('/login', origin);
-            url.searchParams.set('next', `${pathname}${search || ''}`);
-            const res = NextResponse.redirect(url);
-            // Clear the invalid cookie
-            res.cookies.delete(APP_ACCESS);
+        // 5. Check if session matches (Enforce single session)
+        if (user.session_token !== sessionId) {
+            console.warn('MIDDLEWARE_SESSION_MISMATCH');
+            const res = redirectToLogin(req);
+            res.cookies.delete(APP_ACCESS); // Kill the invalid cookie
             return res;
         }
-
     } catch (e) {
-        // Token verification failed (e.g. expired, invalid)
-        const url = new URL('/login', origin);
-        url.searchParams.set('next', `${pathname}${search || ''}`);
-        const res = NextResponse.redirect(url);
-        // Clear the invalid cookie
+        // Token verification failed (e.g. expired, invalid, or database error)
+        console.error("Middleware Auth Error:", e);
+        const res = redirectToLogin(req);
         res.cookies.delete(APP_ACCESS);
         return res;
     }
 
-
     return NextResponse.next();
+}
+
+function redirectToLogin(req: NextRequest) {
+    const url = new URL('/login', req.nextUrl.origin);
+    url.searchParams.set('next', `${req.nextUrl.pathname}${req.nextUrl.search || ''}`);
+    return NextResponse.redirect(url);
 }
 
 export const config = {
